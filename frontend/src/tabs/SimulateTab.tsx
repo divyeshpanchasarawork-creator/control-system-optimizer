@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { CheckField, GainField, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
 import { fmt } from '../components/common'
-import { PoleZeroChart, TimeSeriesChart } from '../components/charts'
+import { PoleZeroChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
+import { poleSummary } from '../lib/poles'
 import type { SimulationResponse } from '../api/types'
 
 function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbsError') {
@@ -13,8 +14,8 @@ function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbs
 }
 
 const LEARNING = {
-	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The plot shows each state over time: position and velocity, with the dashed lines as the reference the controller tracks. The control u = −K(x − r) is applied at every step.',
-	stability: 'The pole-zero map plots the eigenvalues of the closed-loop matrix (A − BK). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
+	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step.',
+	stability: 'The closed-loop pole map plots the eigenvalues of A − BK (state feedback has no finite zeros). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
 	metrics: 'IAE and ISE measure how much the state deviates from the reference. IAE penalizes error linearly, ISE squares it (so large errors hurt more). Overshoot is how far the response exceeds the target. Settling time is when the response stays within the settling band; if it never does, it shows "Not reached". Control effort is the integrated magnitude of u.',
 	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (1/s² units of force authority) and Kd the velocity error.',
 	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference. Without it, u = −Kx drives the state to the origin instead.',
@@ -29,18 +30,41 @@ const SETTLING_OPTIONS = [
 export function SimulateTab() {
 	const w = useWorkspace()
 
+	const inputKey = JSON.stringify({
+		mass: w.mass,
+		damping: w.damping,
+		springConstant: w.springConstant,
+		tracking: w.tracking,
+		gain: (w.useOptimized && w.optimizedGain ? w.optimizedGain : w.manualGain).join(','),
+		useOptimized: w.useOptimized,
+		initialState: w.initialState.join(','),
+		reference: w.reference.join(','),
+		endTime: w.endTime,
+		timeStep: w.timeStep,
+		settlingBand: w.settlingBand,
+	})
+	const attemptedKeyRef = useRef<string | null>(w.simulation === null ? null : inputKey)
+
 	useEffect(() => {
-		if (w.systemDescriptor === null) {
-			void w.loadCatalog()
-		}
-		if (w.simulation === null) {
-			void w.runSimulation()
-		}
-	}, [w.systemDescriptor, w.simulation])
+		if (w.systemDescriptor === null) void w.loadCatalog()
+	}, [w.systemDescriptor, w.loadCatalog])
+
+	useEffect(() => {
+		const needsRun = w.simulation === null || attemptedKeyRef.current !== inputKey
+		if (!needsRun) return
+		const isFirst = attemptedKeyRef.current === null
+		const id = setTimeout(() => {
+			attemptedKeyRef.current = inputKey
+			void w.runSimulation(undefined, { silent: !isFirst })
+			void w.runStability({ silent: true })
+		}, isFirst ? 0 : 400)
+		return () => clearTimeout(id)
+	}, [inputKey, w.simulation, w.runSimulation, w.runStability, w.systemDescriptor, w.loadCatalog])
 
 	const gain = w.useOptimized && w.optimizedGain ? w.optimizedGain : w.manualGain
 	const metrics = w.simulation?.metrics
 	const eigenvalues = w.stability?.eigenvalues
+	const poleInfo = w.stability ? poleSummary(w.stability.eigenvalues ?? []) : null
 	const settlingBand = w.settlingBand
 
 	return (
@@ -115,28 +139,49 @@ export function SimulateTab() {
 			</section>
 
 			<div className="charts-grid charts-grid--2a">
-				<Panel title="Trajectory">
-					{w.simulation ? <TimeSeriesChart response={w.simulation} /> : <div className="empty">No simulation yet</div>}
+				<Panel title="Position x₁(t)">
+					{w.simulation ? <TrajectoryChart response={w.simulation} kind="position" /> : <div className="empty">No simulation yet</div>}
 				</Panel>
-				<Panel title="Pole-Zero Map">
+				<Panel title="Closed-Loop Poles">
 					{w.stability ? (
 						<>
 							<PoleZeroChart eigenvalues={eigenvalues ?? []} />
+							<div className="poles-readout">
+								{eigenvalues?.slice(0, 4).map((lam, i) => (
+									<span key={i} className="mono">λ{i + 1} = {lam.imag === 0 ? fmt(lam.real, 3) : `${fmt(lam.real, 3)} ${lam.imag >= 0 ? '+' : '−'} ${fmt(Math.abs(lam.imag), 3)}i`}</span>
+								))}
+							</div>
 							<div style={{ marginTop: 8 }} className="row">
-								<span className="faint">Closed-loop stability:</span>{' '}
-								{w.stability.stable ? <span>Stable · poles in the left half-plane</span> : <span>Unstable · increase Kp or Kd</span>}
+								<span className="faint">Stability:</span>{' '}
+								{w.stability.stable ? <span>Stable ✓ · poles in the left half-plane</span> : <span>Unstable ✗ · increase Kp or Kd</span>}
 							</div>
 						</>
 					) : (
 						<div className="empty">
-							Run stability analysis to see the pole-zero map.
-							<div style={{ marginTop: 8 }}>
-								<button className="btn secondary" onClick={() => void w.runStability()}>Analyze stability</button>
-							</div>
+							Running stability analysis…
 						</div>
 					)}
 				</Panel>
 			</div>
+
+			<div className="charts-grid charts-grid--2a">
+				<Panel title="Velocity x₂(t)">
+					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <div className="empty">No simulation yet</div>}
+				</Panel>
+				<Panel title="Control u(t)">
+					{w.simulation ? <TrajectoryChart response={w.simulation} kind="control" /> : <div className="empty">No simulation yet</div>}
+				</Panel>
+			</div>
+
+			{poleInfo && (
+				<Panel title="Pole preview">
+					<div className="grid-3">
+						<MetricCard label="Damping ratio ζ" value={poleInfo.zeta === null ? 'n/a' : fmt(poleInfo.zeta, 3)} hint="ζ from the closed-loop poles. Below 1 the response rings, above 1 it crawls. n/a when the poles are real." />
+						<MetricCard label="Natural frequency ωₙ" value={poleInfo.omegaN === null ? 'n/a' : fmt(poleInfo.omegaN, 3)} sub="rad/s" hint="Undamped angular frequency from the pole magnitude." />
+						<MetricCard label="Settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="2% rule of thumb from the dominant pole: 4 / |Re λ|." />
+					</div>
+				</Panel>
+			)}
 
 			<Panel title="Metrics" right={<span className="mono faint">K = [{fmt(gain[0])}, {fmt(gain[1])}]</span>}>
 				{metrics ? (
@@ -183,6 +228,7 @@ export function SimulateTab() {
 
 			{w.error && <div className="callout callout--error">{w.error}</div>}
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
+			{w.refreshing && !w.loading && <div className="callout callout--info">Refreshing results after your edits…</div>}
 		</div>
 	)
 }

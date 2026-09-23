@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { api } from '../api/client'
@@ -55,13 +55,14 @@ export interface WorkspaceState {
 	optimizerResult: OptimizationResponse | null
 
 	loading: string | null
+	refreshing: boolean
 	error: string | null
 
 	update: (patch: Partial<WorkspaceState>) => void
 	loadCatalog: () => Promise<void>
-	runSimulation: (gain?: [number, number]) => Promise<void>
+	runSimulation: (gain?: [number, number], options?: { silent?: boolean }) => Promise<void>
 	simulateGain: (gain: [number, number]) => Promise<SimulationResponse>
-	runStability: () => Promise<void>
+	runStability: (options?: { silent?: boolean }) => Promise<void>
 	runOptimization: () => Promise<void>
 	applyOptimizedGain: () => void
 	clearResults: () => void
@@ -113,7 +114,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [optimizerResult, setOptimizerResult] = useState<OptimizationResponse | null>(null)
 
 	const [loading, setLoading] = useState<string | null>(null)
+	const [refreshing, setRefreshing] = useState(false)
 	const [error, setError] = useState<string | null>(null)
+	const silentActiveRef = useRef(0)
+
+	const beginSilent = () => {
+		silentActiveRef.current += 1
+		setRefreshing(true)
+	}
+	const endSilent = () => {
+		silentActiveRef.current = Math.max(0, silentActiveRef.current - 1)
+		if (silentActiveRef.current === 0) setRefreshing(false)
+	}
 
 	const loadCatalog = useCallback(async () => {
 		try {
@@ -124,8 +136,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		}
 	}, [])
 
-	const runSimulation = useCallback(async (gain?: [number, number]) => {
-		setLoading('Simulating…')
+	const runSimulation = useCallback(async (gain?: [number, number], options?: { silent?: boolean }) => {
+		const silent = options?.silent ?? false
+		if (silent) beginSilent()
+		else setLoading('Simulating…')
 		setError(null)
 		try {
 			const applied = gain ?? (useOptimized && optimizedGain ? optimizedGain : manualGain)
@@ -143,7 +157,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e))
 		} finally {
-			setLoading(null)
+			if (silent) endSilent()
+			else setLoading(null)
 		}
 	}, [mass, damping, springConstant, tracking, manualGain, optimizedGain, useOptimized, initialState, reference, endTime, timeStep, settlingBand])
 
@@ -160,8 +175,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		})
 	}, [mass, damping, springConstant, tracking, initialState, reference, endTime, timeStep, settlingBand])
 
-	const runStability = useCallback(async () => {
-		setLoading('Analyzing stability…')
+	const runStability = useCallback(async (options?: { silent?: boolean }) => {
+		const silent = options?.silent ?? false
+		if (silent) beginSilent()
+		else setLoading('Analyzing stability…')
 		setError(null)
 		try {
 			const system = {
@@ -178,7 +195,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e))
 		} finally {
-			setLoading(null)
+			if (silent) endSilent()
+			else setLoading(null)
 		}
 	}, [mass, damping, springConstant, tracking, manualGain, optimizedGain, useOptimized])
 
@@ -233,7 +251,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const applyOptimizedGain = useCallback(() => {
 		if (optimizedGain) {
 			setUseOptimized(true)
-			setManualGain(optimizedGain)
 		}
 	}, [optimizedGain])
 
@@ -315,6 +332,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		stability,
 		optimizerResult,
 		loading,
+		refreshing,
 		error,
 		update,
 		loadCatalog,

@@ -40,9 +40,38 @@ function metricValue(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[numb
 
 function displayMetric(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[number]['keys'][number]['key'], unit?: string): string {
 	const v = metricValue(m, key)
-	if (v === null || !Number.isFinite(v)) return 'Not reached'
+	if (v === null || !Number.isFinite(v)) return key === 'settling' ? 'Not reached' : 'n/a'
 	const digits = key === 'iae' || key === 'ise' || key === 'controlEffort' ? 4 : 3
 	return `${fmt(v, digits)}${unit ?? ''}`
+}
+
+function allMetricKeys() {
+	return METRIC_GROUPS.flatMap((g) => g.keys)
+}
+
+function tradeoffSentence(manual: MetricsResponse, optimized: MetricsResponse): string | null {
+	const deltas = allMetricKeys()
+		.filter((k) => {
+			const m = metricValue(manual, k.key)
+			const o = metricValue(optimized, k.key)
+			return m !== null && o !== null && Number.isFinite(m) && Number.isFinite(o) && m !== 0
+		})
+		.map((k) => {
+			const m = metricValue(manual, k.key) as number
+			const o = metricValue(optimized, k.key) as number
+			return { k, rel: ((o - m) / Math.abs(m)) * 100 }
+		})
+	if (deltas.length === 0) return null
+	const improved = deltas.filter((d) => d.rel < -0.5).sort((a, b) => a.rel - b.rel)
+	const degraded = deltas.filter((d) => d.rel > 0.5).sort((a, b) => b.rel - a.rel)
+	if (improved.length > 0 && degraded.length > 0) {
+		const best = improved[0]
+		const worst = degraded[0]
+		return `The optimizer trimmed ${best.k.name.toLowerCase()} by ${fmt(Math.abs(best.rel), 1)}% but accepted a ${fmt(Math.abs(worst.rel), 1)}% rise in ${worst.k.name.toLowerCase()}. Under the current weights that trade-off won.`
+	}
+	if (improved.length > 0) return `The optimizer improved ${improved.length} of ${deltas.length} measurable metrics; the largest win was ${improved[0].k.name.toLowerCase()} at ${fmt(Math.abs(improved[0].rel), 1)}%.`
+	if (degraded.length > 0) return `The optimizer did not beat your manual gain on any metric; the largest regression was ${degraded[0].k.name.toLowerCase()} at ${fmt(degraded[0].rel, 1)}%.`
+	return null
 }
 
 export function CompareTab() {
@@ -96,18 +125,22 @@ export function CompareTab() {
 
 			{opt && breakdown && (
 				<Panel title="Objective breakdown at the optimized gain">
-					<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O at K*.</p>
+					<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O at K*. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
 					<div className="grid-3">
 						<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} />
 						<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} />
-						<MetricCard label="Settling (wₛ·Tₛ)" value={fmt(breakdown.settlingTime, 4)} />
+						<MetricCard
+							label={opt.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
+							value={fmt(breakdown.settlingTime, 4)}
+							sub={opt.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s` : 'Ts reached'}
+						/>
 						<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} />
 						<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
 					</div>
 				</Panel>
 			)}
 
-			{(manualSim || optSim || (opt && opt.metrics)) && (
+			{(manualSim || optSim) && (
 				<section className="table-wrap">
 					<Panel title="Per-metric comparison">
 						<table className="data">
@@ -129,6 +162,10 @@ export function CompareTab() {
 				</section>
 			)}
 
+			{!manualSim && !optSim && (
+				<div className="empty">Run the comparison first to line up both controllers on the same table.</div>
+			)}
+
 			<Panel title="Trajectory overlay">
 				<div className="charts-grid">
 					<ChartGrid manual={manualSim} optimized={optSim} />
@@ -142,8 +179,11 @@ export function CompareTab() {
 						<>
 							<p className="faint" style={{ marginTop: 0 }}>
 								The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
-								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> Upload the manual-vs-optimized table above to see the deltas.</>}
+								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> Run the comparison above to see the deltas.</>}
 							</p>
+							{manualMetrics && optMetrics && tradeoffSentence(manualMetrics, optMetrics) && (
+								<p className="faint" style={{ marginTop: -4 }}>{tradeoffSentence(manualMetrics, optMetrics)}</p>
+							)}
 							{manualMetrics && optMetrics ? (
 								<div className="grid-3">
 									{METRIC_GROUPS.flatMap((g) => g.keys).map((k) => {
@@ -221,19 +261,25 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 	const sources = [
 		{ label: 'Manual', data: manual?.trajectory, color: '#0a84ff' },
 		{ label: 'Optimized', data: optimized?.trajectory, color: '#c77800' },
-	].filter((s) => s.data) as { label: string; data: { time: number; state: number[] }[]; color: string }[]
+	].filter((s) => s?.data) as { label: 'Manual' | 'Optimized'; data: { time: number; state: number[]; control?: number[] }[] }[]
 
-	const dims = sources[0]?.data?.[0]?.state.length ?? 1
+	const manualData = sources.find((s) => s.label === 'Manual')?.data
+	const optData = sources.find((s) => s.label === 'Optimized')?.data
+	const base = manualData ?? optData ?? []
+	const count = base.length
+
+	const dims = base[0]?.state.length ?? 1
 	const rows = []
 	for (let i = 0; i < dims; i++) {
-		const data = (sources[0]?.data ?? []).map((p) => ({
-			time: p.time,
-			manual: sources.find((s) => s.label === 'Manual')?.data?.[i] ?? p.state?.[i] ?? undefined,
-			optimized: p.state?.[i] ?? undefined,
+		const data = Array.from({ length: count }, (_, k) => ({
+			time: base[k].time,
+			manual: manualData?.[k]?.state?.[i],
+			optimized: optData?.[k]?.state?.[i],
 		}))
 		const label = dims >= 2 ? (i === 0 ? 'Position' : 'Velocity') : 'State'
+		const unit = dims >= 2 ? (i === 0 ? ' (m)' : ' (m/s)') : ''
 		rows.push(
-			<Panel key={label} title={`${label} over time`}>
+			<Panel key={label} title={`${label} over time${unit}`}>
 				<ResponsiveContainer width="100%" height={180}>
 					<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
 						<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
@@ -245,6 +291,25 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 			</Panel>,
 		)
 	}
+
+	const controlData = Array.from({ length: count }, (_, k) => ({
+		time: base[k].time,
+		manual: manualData?.[k]?.control?.[0],
+		optimized: optData?.[k]?.control?.[0],
+	}))
+	rows.push(
+		<Panel key="Control" title="Control over time (N)">
+			<ResponsiveContainer width="100%" height={180}>
+				<LineChart data={controlData} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+					<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
+					<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={48} />
+					<Line name="Manual K" dataKey="manual" stroke="#0a84ff" dot={false} strokeWidth={2.2} isAnimationActive={false} />
+					<Line name="Optimized K" dataKey="optimized" stroke="#c77800" dot={false} strokeWidth={2.2} strokeDasharray="6 4" isAnimationActive={false} />
+				</LineChart>
+			</ResponsiveContainer>
+		</Panel>,
+	)
+
 	return <div className="charts-grid charts-grid--2">{rows}</div>
 }
 

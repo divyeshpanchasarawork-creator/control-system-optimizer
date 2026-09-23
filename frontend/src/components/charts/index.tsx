@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import {
 	CartesianGrid,
-	Legend,
 	Line,
 	LineChart,
 	ReferenceLine,
@@ -17,54 +16,37 @@ import type { MetricSurfaces, SimulationResponse } from '../../api/types'
 
 export const COLORS = ['#0a84ff', '#32d74b', '#c77800', '#d70015', '#7c3aed', '#0891b2', '#db2777', '#65a30d']
 
-export function TimeSeriesChart({ response }: { response: SimulationResponse }) {
-	const data = response.trajectory
-	const dims = data[0]?.state.length ?? 0
-	const stateNames = dims >= 2 ? ['Position', 'Velocity'] : data[0]?.state.map((_, i) => `State ${i + 1}`) ?? []
+export function TrajectoryChart({ response, kind }: { response: SimulationResponse; kind: 'position' | 'velocity' | 'control' }) {
+	const data = response.trajectory || []
+	const idx = kind === 'position' ? 0 : kind === 'velocity' ? 1 : 0
+	const yLabel = kind === 'position' ? 'Position (m)' : kind === 'velocity' ? 'Velocity (m/s)' : 'u (N)'
+	const color = kind === 'position' ? '#0a84ff' : kind === 'velocity' ? '#32d74b' : '#c77800'
+	const signalName = kind === 'position' ? 'Position' : kind === 'velocity' ? 'Velocity' : 'Control'
 
-	const groups: { key: string; index: number; kind: 'state' | 'reference'; name: string; color: string }[] = []
-	for (let i = 0; i < dims; i++) {
-		const base = stateNames?.[i] ?? `State ${i + 1}`
-		groups.push({ key: `${base}`, index: i, kind: 'state', name: base, color: COLORS[i % COLORS.length] })
-		if ((data[0]?.reference ?? []).length > 0 && data[0]?.reference[i] !== undefined) {
-			groups.push({ key: `${base} (ref)`, index: i, kind: 'reference', name: `Reference ${base.toLowerCase()}`, color: COLORS[i % COLORS.length] })
-		}
-	}
+	const signalKey = kind === 'control'
+		? (p: { time: number; control?: number[] }) => p.control?.[0] ?? 0
+		: (p: { time: number; state: number[] }) => p.state[idx] ?? 0
 
 	return (
-		<ResponsiveContainer width="100%" height={280}>
+		<ResponsiveContainer width="100%" height={200}>
 			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
 				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" label={{ value: 'Time (s)', position: 'insideBottomRight', fontSize: 11, fill: '#a3a3ad', dy: 6 }} />
-				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: 'state', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
+				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
+				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
 				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} />
-				<Legend wrapperStyle={{ fontSize: 12 }} />
-				{groups.map((g) =>
-					g.kind === 'state' ? (
-						<Line
-							key={g.key}
-							name={g.name}
-							dataKey={(p: { time: number; state: number[] }) => p.state[g.index]}
-							stroke={g.color}
-							dot={false}
-							strokeWidth={2.2}
-							strokeLinecap="round"
-							isAnimationActive={false}
-						/>
-					) : (
-						<Line
-							key={g.key}
-							name={g.name}
-							dataKey={(p: { time: number; reference: number[] }) => p.reference?.[g.index]}
-							stroke={g.color}
-							strokeDasharray="6 4"
-							strokeWidth={1.4}
-							dot={false}
-							opacity={0.85}
-							isAnimationActive={false}
-						/>
-					),
+				{kind !== 'control' && data[0]?.reference?.[idx] !== undefined && (
+					<Line
+						name="Reference"
+						dataKey={(p: { time: number; reference?: number[] }) => p.reference?.[idx]}
+						stroke={color}
+						strokeDasharray="6 4"
+						strokeWidth={1.4}
+						dot={false}
+						opacity={0.85}
+						isAnimationActive={false}
+					/>
 				)}
+				<Line name={signalName} dataKey={signalKey} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
 			</LineChart>
 		</ResponsiveContainer>
 	)

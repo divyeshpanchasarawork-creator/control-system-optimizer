@@ -174,6 +174,41 @@ export function OptimizeTab() {
 
 			{w.optimizerResult ? (
 				<div className="stack">
+					<Panel title="Optimization">
+						<div className="opt-summary">
+							<div className="opt-summary__row">
+								<span>Method</span>
+								<span>{w.optimizerType === 'GRID_SEARCH' ? `Grid search · ${w.gridResolution}×${w.gridResolution} cells` : `Differential evolution · pop ${w.populationSize} × gen ${w.maxIterations}`}</span>
+							</div>
+							<div className="opt-summary__row">
+								<span>Search space</span>
+								<span className="mono">Kp: {fmt(w.gainLower[0], 1)} → {fmt(w.gainUpper[0], 1)} · Kd: {fmt(w.gainLower[1], 1)} → {fmt(w.gainUpper[1], 1)}</span>
+							</div>
+							{w.optimizerType === 'GRID_SEARCH' && (
+								<div className="opt-summary__row">
+									<span>Step</span>
+									<span className="mono">Kp {fmt((w.gainUpper[0] - w.gainLower[0]) / (w.gridResolution - 1), 3)} · Kd {fmt((w.gainUpper[1] - w.gainLower[1]) / (w.gridResolution - 1), 3)}</span>
+								</div>
+							)}
+							<div className="opt-summary__row">
+								<span>Runtime</span>
+								<span className="mono">{fmt(w.optimizerResult.elapsedMillis, 0)} ms · {fmt(w.optimizerResult.evaluations, 0)} evaluations</span>
+							</div>
+							<div className="opt-summary__row">
+								<span>Feasible</span>
+								<span>{w.optimizerResult.feasible ? 'Yes · best candidate found' : 'No feasible candidate in the box'}</span>
+							</div>
+							<div className="opt-summary__row">
+								<span>Best candidate</span>
+								<span className="mono">K = [{w.optimizerResult.bestGain.map((g) => fmt(g, 3)).join(', ')}]</span>
+							</div>
+							<div className="opt-summary__row">
+								<span>Objective</span>
+								<span className="mono">J = {w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</span>
+							</div>
+						</div>
+					</Panel>
+
 					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid-3">
 							<MetricCard hint="Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r)." label="Best gain" value={`[${w.optimizerResult.bestGain.map((g) => fmt(g, 3)).join(', ')}]`} />
@@ -199,11 +234,15 @@ export function OptimizeTab() {
 
 					{breakdown && (
 						<Panel title="Why this objective value?">
-							<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O. Here is how each term contributes to the total at the best gain.</p>
+							<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
 							<div className="objective-breakdown grid-3">
 								<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} />
 								<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} />
-								<MetricCard label="Settling (wₛ·Tₛ)" value={fmt(breakdown.settlingTime, 4)} />
+								<MetricCard
+									label={w.optimizerResult?.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
+									value={fmt(breakdown.settlingTime, 4)}
+									sub={w.optimizerResult?.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s` : 'Ts reached'}
+								/>
 								<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} />
 								<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
 							</div>
