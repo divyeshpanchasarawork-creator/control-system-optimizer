@@ -3,7 +3,8 @@ import { useState } from 'react'
 import SimulateTab from './tabs/SimulateTab'
 import OptimizeTab from './tabs/OptimizeTab'
 import CompareTab from './tabs/CompareTab'
-import { LandingHero, LogoMark } from './components/Landing'
+import { LogoMark } from './components/Landing'
+import LandingPage from './components/landing/LandingPage'
 
 type TabId = 'simulate' | 'optimize' | 'compare'
 
@@ -69,7 +70,7 @@ export default function App() {
 	return (
 		<div className="app">
 			{view === 'landing' ? (
-				<LandingHero onEnter={() => setView('lab')} />
+				<LandingPage onEnter={() => setView('lab')} />
 ) : (
 				<div className="workspace">
 					<aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>

@@ -21,9 +21,9 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
 
-  --radius: 12px;
+  --radius: 8px;
   --radius-sm: 8px;
-  --radius-lg: 20px;
+  --radius-lg: 12px;
 
   --mono: "SF Mono", ui-monospace, "Roboto Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* Apple-style system stack, SF Pro first */
