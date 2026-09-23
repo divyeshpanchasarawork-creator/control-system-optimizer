@@ -1,0 +1,113 @@
+:root {
+  --bg: #fbfbfd;
+  --surface: #ffffff;
+  --surface-2: #f6f6f8;
+  --surface-3: #eef0f4;
+  --border: #e2e2e8;
+  --border-strong: #d4d4dc;
+  --text: #1d1d1f;
+  --text-2: #55555a;
+  --text-3: #8e8e93;
+  --blue: #0a84ff;
+  --blue-2: #1479f0;
+  --blue-soft: #e8f2ff;
+  --green: #248a3d;
+  --green-soft: #e9f7ee;
+  --amber: #c77800;
+  --amber-soft: #fff4e0;
+  --red: #d70015;
+  --red-soft: #ffecee;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+
+  --mono: "SF Mono", ui-monospace, "Roboto Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* Apple-style system stack, SF Pro first */
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", "Segoe UI", Roboto, "Inter", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 64px;
+  --header-h: 60px;
+  --header-w: 28px;
+
+  --ease: cubic-bezier(0.3, 0.8, 0.3, 1);
+  --dur: 180ms;
+
+  --tab-blue: #0a84ff;
+  --tab-amber: #c77800;
+  --tab-emerald: #1a8c4d;
+
+  /* Type scale (Apple-like: heavier weights, tight tracking on display) */
+  --fs-display: clamp(40px, 6vw, 68px);
+  --fs-hero: clamp(26px, 3.5vw, 40px);
+  --fs-title: 22px;
+  --fs-heading: 16px;
+  --fs-body: 14px;
+  --fs-caption: 12px;
+  --fs-micro: 11px;
+  --tracking-tight: -0.02em;
+  --tracking-label: 0.02em;
+  --weight-title: 650;
+  --weight-strong: 600;
+  --weight-regular: 450;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  font-weight: var(--weight-regular);
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--sans);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.faint {
+  color: var(--text-2);
+}
+
+::selection {
+  background: var(--blue-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
