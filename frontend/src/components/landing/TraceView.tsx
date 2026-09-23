@@ -37,12 +37,12 @@ interface StepTraceProps {
 
 export function StepTraceView({ tMax = 8, ref = 1, children }: StepTraceProps) {
 	const refY = yScale(ref, ref)
-	const midY = (PAD_T + H - PAD_B) / 2 + 30
+	const zeroY = yScale(0, ref)
 
 	return (
 		<svg viewBox={`0 0 ${W} ${H}`} className="trace" role="img" aria-label="Step response trace">
 			{/* gridlines */}
-			{[0.25, 0.5, 0.75, 1, 1.25].map((g) => (
+			{[0, 0.5, 1, 1.5].map((g) => (
 				<line key={g} x1={PAD_L} y1={yScale(g, ref)} x2={W - PAD_R} y2={yScale(g, ref)} className="trace__grid" />
 			))}
 			{[1, 2, 4].concat(tMax > 6 ? [6, 8] : []).map((t) => (
@@ -57,8 +57,8 @@ export function StepTraceView({ tMax = 8, ref = 1, children }: StepTraceProps) {
 
 			{/* axes */}
 			<line x1={PAD_L} y1={PAD_T} x2={PAD_L} y2={H - PAD_B} className="trace__axis" />
-			<line x1={PAD_L} y1={midY} x2={W - PAD_R} y2={midY} className="trace__axis" />
-			<text x={PAD_L} y={midY + 14} className="trace__tick">0</text>
+			<line x1={PAD_L} y1={zeroY} x2={W - PAD_R} y2={zeroY} className="trace__axis" />
+			<text x={PAD_L} y={zeroY + 14} className="trace__tick">0</text>
 			<text x={W - PAD_R} y={H - PAD_B + 18} textAnchor="end" className="trace__tick">t (s)</text>
 		</svg>
 	)

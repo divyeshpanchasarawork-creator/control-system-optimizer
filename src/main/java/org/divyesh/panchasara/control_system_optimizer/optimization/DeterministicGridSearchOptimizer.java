@@ -77,7 +77,7 @@ public final class DeterministicGridSearchOptimizer implements Optimizer {
 				bestX = x.clone();
 			}
 			if (evaluations % milestoneInterval == 0) {
-				convergence.add(new ConvergencePoint((int) (evaluations / milestoneInterval), best));
+				convergence.add(new ConvergencePoint((int) evaluations, best));
 			}
 			for (int i = 0; i < d; i++) {
 				if (++index[i] < res[i]) {
@@ -86,7 +86,10 @@ public final class DeterministicGridSearchOptimizer implements Optimizer {
 				index[i] = 0;
 			}
 		}
-		convergence.add(new ConvergencePoint(convergence.isEmpty() ? 0 : convergence.getLast().generation() + 1, best));
+		int finalGeneration = (int) evaluations;
+		if (convergence.isEmpty() || convergence.getLast().generation() != finalGeneration) {
+			convergence.add(new ConvergencePoint(finalGeneration, best));
+		}
 
 		Map<String, Object> configMap = new LinkedHashMap<>();
 		configMap.put("resolution", res.clone());

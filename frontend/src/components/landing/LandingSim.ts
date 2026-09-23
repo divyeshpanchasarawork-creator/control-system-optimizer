@@ -101,18 +101,13 @@ export function simulateClosedLoop(
 	return points
 }
 
-/** Damping values for the three hero presets, given the same m, k, gains. */
+/** Plant damping that yields the target closed-loop damping ratio, given the same m, k, gains. */
 export function presetDamping(mode: 'under' | 'critical' | 'over', p: Omit<LabParams, 'c'>): number {
 	const { m, k, kp, kd } = p
-	const cCritical = 2 * Math.sqrt(m * (k + kp)) - kd
-	switch (mode) {
-		case 'under':
-			return Math.max(0.2, cCritical * 0.28)
-		case 'over':
-			return cCritical * 2.2
-		case 'critical':
-			return cCritical
-	}
+	const omegaN = Math.sqrt((k + kp) / m)
+	const targetZeta = mode === 'under' ? 0.18 : mode === 'critical' ? 1.0 : 1.6
+	const cEff = 2 * m * omegaN * targetZeta
+	return clamp(cEff - kd, 0, Number.POSITIVE_INFINITY)
 }
 
 /** Time (s) after which the response stays within band% of the reference. null if never. */

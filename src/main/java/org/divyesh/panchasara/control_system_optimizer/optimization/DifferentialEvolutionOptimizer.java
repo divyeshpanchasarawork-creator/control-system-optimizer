@@ -104,8 +104,31 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 
 		boolean feasible = bestIndex >= 0 && Double.isFinite(bestCost);
 		double[] bestX = feasible ? population[bestIndex].clone() : null;
-		return new OptimizationResult(type(), bestX, bestCost, evaluations, feasible, true, config.seed(),
-				convergence, null, null, configMap);
+		return new OptimizationResult(type(), bestX, bestCost, evaluations, feasible, converged(convergence),
+				config.seed(), convergence, null, null, configMap);
+	}
+
+	/**
+	 * True when the objective stopped improving meaningfully over the trailing
+	 * stretch of the run: the relative drop from the start of the trailing window
+	 * to the final record is below 1e-4. A run that ends still infeasible does
+	 * not count as converged.
+	 */
+	private boolean converged(List<ConvergencePoint> convergence) {
+		if (convergence.size() < 3) {
+			return true;
+		}
+		int window = Math.max(1, convergence.size() / 5);
+		double start = convergence.get(Math.max(0, convergence.size() - window - 1)).bestCost();
+		double end = convergence.getLast().bestCost();
+		if (!Double.isFinite(end)) {
+			return false;
+		}
+		if (!Double.isFinite(start)) {
+			return false;
+		}
+		double relativeImprovement = (start - end) / Math.max(1e-12, Math.abs(start));
+		return relativeImprovement < 1e-4;
 	}
 
 	/** Picks a population index distinct from i, a and b (pass -1 to ignore). */

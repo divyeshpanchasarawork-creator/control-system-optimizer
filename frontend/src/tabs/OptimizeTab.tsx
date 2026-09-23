@@ -189,6 +189,12 @@ export function OptimizeTab() {
 								<button className="btn" onClick={w.applyOptimizedGain}>Apply optimized gain</button>
 							</div>
 						)}
+
+						{w.optimizerType === 'DIFFERENTIAL_EVOLUTION' && (
+							<p className="faint" style={{ marginBottom: 0 }}>
+								Seeded search explores the box by sampling: this K is the best of that sample, not the box-wide optimum. Run grid search at the same resolution to confirm the exhaustive best.
+							</p>
+						)}
 					</Panel>
 
 					{breakdown && (
@@ -242,6 +248,8 @@ export function OptimizeTab() {
 								metricSurfaces={metricSurfaces ?? undefined}
 								optimum={w.optimizerResult.feasible ? w.optimizerResult.bestGain : undefined}
 								manual={(w.useOptimized ? w.optimizedGain : w.manualGain) ?? undefined}
+								gainBounds={{ lower: [...w.gainLower], upper: [...w.gainUpper] }}
+								resolution={[w.gridResolution, w.gridResolution]}
 							/>
 						</Panel>
 					)}

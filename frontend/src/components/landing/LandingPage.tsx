@@ -6,7 +6,7 @@ import MassSpringDamperSim from './hero/MassSpringDamperSim'
 import TuneSection from './TuneSection'
 import { StepTraceView, pointsToPath } from './TraceView'
 
-const HERO_BASE: Omit<LabParams, 'c'> = { m: 1, k: 2, kp: 10, kd: 5 }
+const HERO_BASE: Omit<LabParams, 'c'> = { m: 1, k: 2, kp: 10, kd: 0 }
 
 function RegimeTraces() {
 	const modes = ['under', 'critical', 'over'] as const

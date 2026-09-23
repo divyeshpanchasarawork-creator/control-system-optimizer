@@ -4,10 +4,12 @@
    ============================================================ */
 .workspace {
   display: flex;
-  min-height: calc(100vh - 8px);
+  height: 100vh;
   padding: 8px;
   gap: 8px;
   background: var(--bg);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .app-shell {
@@ -200,22 +202,22 @@
 .main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
 .main__header {
+  flex: 0 0 auto;
   height: var(--header-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
-  position: sticky;
-  top: 16px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(10px);
-  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  background: var(--surface);
   z-index: 5;
   border-bottom: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
@@ -252,6 +254,9 @@
 }
 
 .main__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 22px;
 }
 
@@ -983,6 +988,8 @@
 
 .heatmap {
   user-select: none;
+  max-height: 460px;
+  overflow: auto;
 }
 
 .heatmap__cell {

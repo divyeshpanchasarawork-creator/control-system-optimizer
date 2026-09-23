@@ -112,12 +112,14 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 	)
 }
 
-export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimum, manual }: {
+export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimum, manual, gainBounds, resolution }: {
 	surface: (number | null)[][]
 	axisLabels: [string, string]
 	metricSurfaces?: MetricSurfaces
 	optimum?: number[] | null
 	manual?: number[]
+	gainBounds?: { lower: number[]; upper: number[] }
+	resolution?: number[]
 }) {
 	const rows = surface.length
 	const cols = surface[0]?.length ?? 0
@@ -139,28 +141,43 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 	const kpAxis = axisLabels[0]
 	const kdAxis = axisLabels[1]
 
+	// backend stores surface[kp][kd]: rows vary over the Kp dimension, columns over Kd
+	const spacingOf = (idx: number): number => {
+		const lo = gainBounds?.lower?.[idx]
+		const up = gainBounds?.upper?.[idx]
+		const res = resolution?.[idx]
+		if (lo === undefined || up === undefined || !res || res < 2) return 1
+		return (up - lo) / (res - 1)
+	}
+	const gainToRow = (gains?: number[] | null) => {
+		if (!gains || gains.length < 2 || !Number.isFinite(gains[0])) return null
+		return Math.max(0, Math.min(rows - 1, Math.round((gains[0] - (gainBounds?.lower?.[0] ?? 0)) / spacingOf(0))))
+	}
+	const gainToCol = (gains?: number[] | null) => {
+		if (!gains || gains.length < 2 || !Number.isFinite(gains[1])) return null
+		return Math.max(0, Math.min(cols - 1, Math.round((gains[1] - (gainBounds?.lower?.[1] ?? 0)) / spacingOf(1))))
+	}
+	const optiR = gainToRow(optimum)
+	const optiC = gainToCol(optimum)
+	const manualR = gainToRow(manual)
+	const manualC = gainToCol(manual)
+
 	const hoverJ = hover ? (surface[hover.r]?.[hover.c] ?? null) : null
 	const hoverIae = hover && metricSurfaces ? (metricSurfaces.iae[hover.r]?.[hover.c] ?? null) : null
 	const hoverEffort = hover && metricSurfaces ? (metricSurfaces.controlEffort[hover.r]?.[hover.c] ?? null) : null
 	const hoverInfeasible = hoverJ === null || hoverJ === undefined
 
-	const optiR = optimum && optimum.length >= 2 ? Math.max(0, Math.min(rows - 1, optimum[0])) : null
-	const optiC = optimum && optimum.length >= 2 ? Math.max(0, Math.min(cols - 1, optimum[1])) : null
-
-	const manualR = manual && manual.length >= 2 ? Math.max(0, Math.min(rows - 1, manual[0])) : null
-	const manualC = manual && manual.length >= 2 ? Math.max(0, Math.min(cols - 1, manual[1])) : null
-
 	return (
 		<div>
-			<div className="heatmap" style={{ display: 'grid', gridTemplateColumns: `34px repeat(${cols}, 1fr)`, gap: 2 }}>
+			<div className="heatmap" style={{ display: 'grid', gridTemplateColumns: `34px repeat(${cols}, minmax(10px, 1fr))`, gap: 2 }}>
 				<div />
 				<div style={{ textAlign: 'center', fontSize: 10, color: '#8e8e93', gridColumn: `2 / -1` }}>
-					{kpAxis} →
+					{kdAxis} →
 				</div>
 				{surface.map((row, r) => (
 					<Fragment key={r}>
 						<div style={{ fontSize: 10, color: '#8e8e93', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
-							{r === Math.floor(rows / 2) ? <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>← {kdAxis}</span> : ''}
+							{r === Math.floor(rows / 2) ? <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>← {kpAxis}</span> : ''}
 						</div>
 						{row.map((val, c) => {
 							const isOpt = optiR === r && optiC === c
@@ -189,7 +206,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 
 			{hover && (
 				<div className="heatmap-tooltip" style={{ marginTop: 10, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)', display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12.5 }}>
-					<span className="mono">Kp ~ col {hover.c}, Kd ~ row {hover.r}</span>
+					<span className="mono">Kp ~ row {hover.r}, Kd ~ col {hover.c}</span>
 					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : ` ${Number(hoverJ).toFixed(4)}`}</span>
 					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : Number(hoverIae).toFixed(3)}</span>}
 					{metricSurfaces && <span><b>Control effort</b> = {hoverEffort === null || hoverEffort === undefined ? 'n/a' : Number(hoverEffort).toFixed(3)}</span>}
