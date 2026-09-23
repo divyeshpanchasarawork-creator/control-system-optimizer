@@ -1,0 +1,6 @@
+.git
+frontend/
+target/
+.mvn/wrapper/maven-wrapper.jar
+.DS_Store
+HELP.md
