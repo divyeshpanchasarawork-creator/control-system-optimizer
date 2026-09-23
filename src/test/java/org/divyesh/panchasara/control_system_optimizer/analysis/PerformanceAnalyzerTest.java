@@ -74,6 +74,35 @@ class PerformanceAnalyzerTest {
 		assertEquals(4.0, m.maxControl(), 1e-9);
 	}
 
+	@Test
+	void defaultBandMatchesExplicitTwoPercent() {
+		Trajectory trajectory = trajectory(new double[][] {
+				{ 0.0, 1.3, 0 },
+				{ 1.0, 1.05, 0 },
+				{ 2.0, 1.01, 0 },
+				{ 3.0, 1.01, 0 }
+		}, new double[] { 1.0, 0.0 });
+		assertEquals(analyzer.analyze(trajectory), analyzer.analyze(trajectory, 0.02));
+	}
+
+	@Test
+	void widerBandReportsEarlierOrEqualSettling() {
+		Trajectory trajectory = trajectory(new double[][] {
+				{ 0.0, 1.3, 0 },
+				{ 1.0, 1.05, 0 },
+				{ 2.0, 1.01, 0 },
+				{ 3.0, 1.01, 0 }
+		}, new double[] { 1.0, 0.0 });
+
+		PerformanceMetrics twoPercent = analyzer.analyze(trajectory, 0.02);
+		PerformanceMetrics tenPercent = analyzer.analyze(trajectory, 0.10);
+
+		// with a 10% band the t=1 sample (5% error) never counts as a violation,
+		// so settling moves to t=1
+		assertEquals(1.0, tenPercent.settlingTime(), 1e-9);
+		assertTrue(tenPercent.settlingTime() <= twoPercent.settlingTime());
+	}
+
 	private Trajectory trajectory(double[][] samples, double[] reference) {
 		List<TrajectoryPoint> points = java.util.Arrays.stream(samples)
 				.map(s -> new TrajectoryPoint(s[0], new double[] { s[1], 0.0 }, new double[] { s[2] }, reference))

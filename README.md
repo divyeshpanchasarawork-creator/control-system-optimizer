@@ -72,11 +72,13 @@ From a simulated trajectory (all integrals trapezoidal over the samples):
 | maxAbsError   | `max |x-r|` |
 | finalError    | `|x(T)-r(T)|` |
 | overshoot     | `(peak-r₀)/|r₀| · 100`, clamped ≥ 0; `0` for zero reference |
-| settlingTime  | first `t` after which the error stays within a 2% band of `‖r‖` forever; **null** (`NaN`) when the system never settles |
+| settlingTime  | first `t` after which the error stays within a settling band of `‖r‖` forever; **null** (`NaN`) when the system never settles |
 | maxControl    | `max ‖u‖₂` |
 
-A non-settling trajectory is a legitimate (undesirable) outcome, not a numerics
-failure; it is penalized in the objective rather than rejected.
+The settling band is configurable per request (`simulation.settlingBand`,
+default `2`, meaning 2% of the reference norm). A non-settling trajectory is a
+legitimate (undesirable) outcome, not a numerics failure; it is penalized in the
+objective rather than rejected.
 
 ## 6. Objective function
 
@@ -86,6 +88,32 @@ J(K) = w₁·IAE + w₂·controlEffort + w₃·settlingTime + w₄·overshoot
 
 Weights are configurable per request. If a metric is NaN the objective maps the
 candidate to +∞ (infeasible), so NaN never leaks into the optimizer or the API.
+A trajectory that never settles has `settlingTime = NaN` and is penalized as
+settling exactly at the simulation horizon `T` (the finite penalty, not +∞),
+because "never settles within the horizon" is a legitimate result to grade, not
+a numerical failure.
+
+Each optimization response also exposes `objectiveBreakdown` — the four weighted
+contributions `(w₁·IAE, w₂·controlEffort, w₃·settlingTime, w₄·overshoot)` plus
+their total — so a UI can show *why* one gain beats another.
+
+### Hard constraints (optional)
+
+The optimization request may include a `constraints` block:
+
+```json
+"constraints": {"maxControl": 20, "maxOvershoot": 10, "maxSettlingTime": 3}
+```
+
+Any candidate violating a present constraint is treated as infeasible (+∞). The
+response reports each enforced constraint with the achieved value of the best
+gain and whether it is satisfied.
+
+### Metric surfaces (grid search)
+
+When a 2-D grid search is run with `"includeCostSurface": true`, the response
+additionally returns `metricSurfaces.iae` and `metricSurfaces.controlEffort` —
+the per-cell IAE and control effort over the same grid, for layered heatmaps.
 
 ## 7. Deterministic optimization — grid search
 
@@ -132,9 +160,10 @@ curl -X POST localhost:8080/api/optimization -H 'Content-Type: application/json'
   "system": {"type":"SPRING_DAMPER","parameters":{"mass":1,"damping":0.5,"springConstant":10}},
   "controller": {"type":"STATE_FEEDBACK"},
   "gainBounds": {"lower":[0,0],"upper":[30,10]},
-  "optimizer": {"type":"DIFFERENTIAL_EVOLUTION","populationSize":20,"maxIterations":200,"seed":42},
+  "optimizer": {"type":"GRID_SEARCH","resolution":[31,11],"includeCostSurface":true},
   "objective": {"trackingErrorWeight":1,"controlEffortWeight":0.1,"settlingTimeWeight":0.5,"overshootWeight":0.5},
-  "simulation": {"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":0.05}
+  "simulation": {"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":0.05,"settlingBand":5},
+  "constraints": {"maxControl":15,"maxOvershoot":25,"maxSettlingTime":3}
 }'
 ```
 

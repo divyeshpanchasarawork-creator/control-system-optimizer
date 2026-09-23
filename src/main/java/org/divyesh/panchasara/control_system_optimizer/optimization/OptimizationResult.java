@@ -1,5 +1,8 @@
 package org.divyesh.panchasara.control_system_optimizer.optimization;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Outcome of an optimization run.
  *
@@ -12,6 +15,14 @@ package org.divyesh.panchasara.control_system_optimizer.optimization;
  * @param converged      true if the optimizer ran to completion
  * @param seed           the deterministic random seed used (null for purely
  *                       deterministic optimizers)
+ * @param convergence    progress samples, best cost vs generation/milestone
+ * @param costSurface    full evaluation grid for 2-D problems when requested by
+ *                       the caller (null otherwise); entries may be null where a
+ *                       candidate was infeasible
+ * @param metricSurfaces per-cell IAE and control-effort diagnostics recorded
+ *                       alongside {@code costSurface} (null unless requested)
+ * @param config         effective configuration echoed back (resolution, DE
+ *                       parameters, seed, ...)
  */
 public record OptimizationResult(
 		String optimizerType,
@@ -20,5 +31,14 @@ public record OptimizationResult(
 		long evaluations,
 		boolean feasible,
 		boolean converged,
-		Long seed) {
+		Long seed,
+		List<ConvergencePoint> convergence,
+		Double[][] costSurface,
+		MetricSurfaces metricSurfaces,
+		Map<String, Object> config) {
+
+	public OptimizationResult {
+		convergence = convergence == null ? List.of() : List.copyOf(convergence);
+		config = config == null ? Map.of() : Map.copyOf(config);
+	}
 }

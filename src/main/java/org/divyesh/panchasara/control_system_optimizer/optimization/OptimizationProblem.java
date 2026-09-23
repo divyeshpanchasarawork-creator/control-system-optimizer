@@ -24,4 +24,13 @@ public interface OptimizationProblem {
 	 *         {@link Double#POSITIVE_INFINITY}; NaN is never a valid result.
 	 */
 	double evaluate(double[] candidate);
+
+	/**
+	 * Evaluates a candidate together with the tracking/control metrics that
+	 * produced the cost. The default bridges to {@link #evaluate}, so problems
+	 * that do not want to expose metrics inherit a metrics-free evaluation.
+	 */
+	default EvaluationDetail evaluateDetail(double[] candidate) {
+		return new EvaluationDetail(evaluate(candidate), null, null);
+	}
 }

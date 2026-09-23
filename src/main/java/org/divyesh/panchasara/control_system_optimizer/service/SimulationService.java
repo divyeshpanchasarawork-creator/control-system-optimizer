@@ -48,7 +48,7 @@ public class SimulationService {
 
 		Trajectory trajectory = simulator.simulate(new SimulationSetup(system, controller,
 				settings.initialState(), settings.reference(), settings.startTime(), settings.endTime(), settings.timeStep()));
-		PerformanceMetrics metrics = performanceAnalyzer.analyze(trajectory);
+		PerformanceMetrics metrics = performanceAnalyzer.analyze(trajectory, settings.settlingBandFraction());
 
 		List<TrajectoryPointDto> points = trajectory.points().stream()
 				.map(p -> new TrajectoryPointDto(p.time(), p.state(), p.control(), p.reference()))
@@ -85,6 +85,7 @@ public class SimulationService {
 		double startTime = config.startTime() == null ? 0.0 : config.startTime();
 		double endTime = config.endTime() == null ? properties.simulation().defaultEndTime() : config.endTime();
 		double timeStep = config.timeStep() == null ? properties.simulation().defaultTimeStep() : config.timeStep();
-		return new SimulationSettings(state, ref, startTime, endTime, timeStep);
+		double settlingBandFraction = (config.settlingBand() == null ? 2.0 : config.settlingBand()) / 100.0;
+		return new SimulationSettings(state, ref, startTime, endTime, timeStep, settlingBandFraction);
 	}
 }

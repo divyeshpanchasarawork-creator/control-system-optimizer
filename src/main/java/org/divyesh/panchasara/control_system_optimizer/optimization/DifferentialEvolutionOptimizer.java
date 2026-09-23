@@ -1,5 +1,9 @@
 package org.divyesh.panchasara.control_system_optimizer.optimization;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.SplittableRandom;
 
 /**
@@ -9,7 +13,8 @@ import java.util.SplittableRandom;
  * replacement, but they do occupy population slots, so the search keeps moving.
  * All randomness comes from a single {@link SplittableRandom} fixed by the seed;
  * combined with the fixed iteration order and strict "&lt;" replacement rule,
- * identical (problem, bounds, config) inputs produce identical results.
+ * identical (problem, bounds, config) inputs produce identical results. The best
+ * cost after every generation is recorded as a convergence series.
  */
 public final class DifferentialEvolutionOptimizer implements Optimizer {
 
@@ -55,6 +60,8 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 				bestIndex = i;
 			}
 		}
+		List<ConvergencePoint> convergence = new ArrayList<>();
+		convergence.add(new ConvergencePoint(0, bestCost));
 
 		double[] trial = new double[d];
 
@@ -85,11 +92,20 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 					}
 				}
 			}
+			convergence.add(new ConvergencePoint(generation + 1, bestCost));
 		}
+
+		Map<String, Object> configMap = new LinkedHashMap<>();
+		configMap.put("populationSize", populationSize);
+		configMap.put("maxIterations", config.maxIterations());
+		configMap.put("differentialWeight", f);
+		configMap.put("crossoverRate", cr);
+		configMap.put("seed", config.seed());
 
 		boolean feasible = bestIndex >= 0 && Double.isFinite(bestCost);
 		double[] bestX = feasible ? population[bestIndex].clone() : null;
-		return new OptimizationResult(type(), bestX, bestCost, evaluations, feasible, true, config.seed());
+		return new OptimizationResult(type(), bestX, bestCost, evaluations, feasible, true, config.seed(),
+				convergence, null, null, configMap);
 	}
 
 	/** Picks a population index distinct from i, a and b (pass -1 to ignore). */

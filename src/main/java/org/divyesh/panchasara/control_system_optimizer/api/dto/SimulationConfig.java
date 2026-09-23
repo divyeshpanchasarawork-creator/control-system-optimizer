@@ -5,11 +5,21 @@ import jakarta.validation.constraints.NotNull;
 /**
  * Shared simulation configuration block for both simulation and optimization
  * requests. Nullables fall back to framework defaults.
+ *
+ * @param settlingBand settling-time tolerance band as a percentage of the
+ *                     reference norm, e.g. 2, 5 or 10 (default 2)
  */
 public record SimulationConfig(
 		@NotNull double[] initialState,
 		@NotNull double[] reference,
 		Double startTime,
 		Double endTime,
-		Double timeStep) {
+		Double timeStep,
+		Double settlingBand) {
+
+	public SimulationConfig {
+		if (settlingBand != null && (settlingBand <= 0.0 || settlingBand > 100.0)) {
+			throw new IllegalArgumentException("settlingBand must be in (0, 100] (percent)");
+		}
+	}
 }

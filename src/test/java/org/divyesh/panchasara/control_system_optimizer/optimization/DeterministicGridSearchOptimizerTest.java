@@ -3,6 +3,7 @@ package org.divyesh.panchasara.control_system_optimizer.optimization;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,18 @@ class DeterministicGridSearchOptimizerTest {
 		OptimizationResult second = new DeterministicGridSearchOptimizer(config).optimize(quadratic());
 		assertArrayEquals(first.bestParameters(), second.bestParameters());
 		assertEquals(first.bestCost(), second.bestCost(), 0.0);
+	}
+
+	@Test
+	void optionalCostSurfaceIsReturnedFor2D() {
+		OptimizationResult result = new DeterministicGridSearchOptimizer(
+				new GridSearchConfig(new int[] { 3, 5 }, true)).optimize(quadratic());
+		Double[][] surface = result.costSurface();
+		assertNotNull(surface);
+		assertEquals(3, surface.length);
+		assertEquals(5, surface[0].length);
+		// minimum (1,2) sits at index (1,2) with cost 0
+		assertEquals(0.0, surface[1][2], 1e-12);
 	}
 
 	@Test

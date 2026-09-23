@@ -17,14 +17,26 @@ import org.springframework.stereotype.Component;
 @Component
 public final class PerformanceAnalyzer {
 
-	private static final double SETTLING_BAND = 0.02; // 2% of reference norm
+	private static final double DEFAULT_SETTLING_BAND = 0.02; // 2% of reference norm
 
 	public PerformanceMetrics analyze(Trajectory trajectory) {
+		return analyze(trajectory, DEFAULT_SETTLING_BAND);
+	}
+
+	/**
+	 * Timed-domain analysis with an explicit settling tolerance band.
+	 *
+	 * @param trajectory            the simulated trajectory
+	 * @param settlingBandFraction  settling tolerance as a fraction of the
+	 *                              reference norm (0.02 = 2%); the smaller the
+	 *                              fraction the stricter the definition of settled
+	 */
+	public PerformanceMetrics analyze(Trajectory trajectory, double settlingBandFraction) {
 		List<TrajectoryPoint> points = trajectory.points();
 		int n = points.size();
 
 		double referenceNorm0 = norm(points.getFirst().reference());
-		double settlingBand = SETTLING_BAND * referenceNorm0;
+		double settlingBand = settlingBandFraction * referenceNorm0;
 		int lastViolation = -1;
 
 		double maxAbsError = 0.0;

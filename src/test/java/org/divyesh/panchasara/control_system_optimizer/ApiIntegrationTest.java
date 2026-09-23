@@ -89,6 +89,103 @@ class ApiIntegrationTest {
 		String second = content(body);
 		assertThat(withoutElapsedMillis(first)).isEqualTo(withoutElapsedMillis(second));
 		assertThat(first).doesNotContain("NaN", "Infinity");
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.convergence.length()").value(101))
+				.andExpect(jsonPath("$.convergence[0].generation").value(0))
+				.andExpect(jsonPath("$.optimizerConfig.seed").value(42));
+	}
+
+	@Test
+	void gridSearchCanReturnCostSurface() throws Exception {
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[30,10]},
+				"optimizer":{"type":"GRID_SEARCH","resolution":[11,6],"includeCostSurface":true},"objective":{},%s}
+				""".formatted(SYSTEM, SIMULATION);
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.costSurface.length()").value(11))
+				.andExpect(jsonPath("$.costSurface[0].length()").value(6))
+				.andExpect(jsonPath("$.metricSurfaces.iae[0][0]").exists())
+				.andExpect(jsonPath("$.metricSurfaces.controlEffort[0][0]").exists())
+				.andExpect(jsonPath("$.optimizerConfig.resolution[0]").value(11));
+	}
+
+	@Test
+	void simulationHonorsSettlingBand() throws Exception {
+		// with feedback-only tracking the steady-state position is kp/(10+kp),
+		// so high gains settle; the 10% band makes settling even looser
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK","gain":[1000,200]},
+								"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":2,"timeStep":0.01,"settlingBand":10}}
+								""".formatted(SYSTEM)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.metrics.settlingTime").isNumber());
+	}
+
+	@Test
+	void simulationSettlingIsNullWhenNeverSettled() throws Exception {
+		// low gains leave a residual offset > 2% forever
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK","gain":[1,1]},
+								"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":2,"timeStep":0.01}}
+								""".formatted(SYSTEM)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.metrics.settlingTime").doesNotExist())
+				.andExpect(jsonPath("$.metrics.iae").isNumber());
+	}
+
+	@Test
+	void optimizationReportsObjectiveBreakdown() throws Exception {
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[30,10]},
+								"optimizer":{"type":"GRID_SEARCH","resolution":[11,6]},"objective":{},%s}
+								""".formatted(SYSTEM, SIMULATION)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.objectiveBreakdown").exists())
+				.andExpect(jsonPath("$.objectiveBreakdown.total").isNumber())
+				.andExpect(jsonPath("$.objectiveBreakdown.trackingError").isNumber());
+	}
+
+	@Test
+	void satisfiedConstraintsAreReported() throws Exception {
+		// feedback-only tracking leaves a residual offset kp/(10+kp); large kp
+		// settles within the 2% band, so a permissive constraint set is feasible
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[2000,500]},
+				"optimizer":{"type":"GRID_SEARCH","resolution":[7,5]},"objective":{},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":2,"timeStep":0.01},
+				"constraints":{"maxControl":3000,"maxOvershoot":100,"maxSettlingTime":2}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.feasible").value(true))
+				.andExpect(jsonPath("$.constraints.length()").value(3))
+				.andExpect(jsonPath("$.constraints[0].id").value("max-control"))
+				.andExpect(jsonPath("$.constraints[0].satisfied").value(true))
+				.andExpect(jsonPath("$.constraints[1].id").value("max-overshoot"))
+				.andExpect(jsonPath("$.constraints[1].satisfied").value(true))
+				.andExpect(jsonPath("$.constraints[2].id").value("max-settling-time"))
+				.andExpect(jsonPath("$.constraints[2].satisfied").value(true));
+	}
+
+	@Test
+	void impossibleConstraintsYieldInfeasibleResult() throws Exception {
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[30,10]},
+								"optimizer":{"type":"GRID_SEARCH","resolution":[11,6]},"objective":{},
+								"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":0.05},
+								"constraints":{"maxControl":0.0001,"maxOvershoot":0.0001,"maxSettlingTime":0.0001}}
+								""".formatted(SYSTEM)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.feasible").value(false));
 	}
 
 	private String withoutElapsedMillis(String response) {

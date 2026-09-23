@@ -25,15 +25,26 @@ public final class WeightedControlObjective implements ObjectiveFunction {
 
 	@Override
 	public double evaluate(Trajectory trajectory, PerformanceMetrics metrics) {
+		ObjectiveBreakdown b = breakdown(trajectory, metrics);
+		return b == null ? Double.POSITIVE_INFINITY : b.total();
+	}
+
+	/**
+	 * The per-term contributions of the objective, mirroring {@link #evaluate}.
+	 * Returns {@code null} for numerically invalid metrics (they evaluate to
+	 * {@link Double#POSITIVE_INFINITY}).
+	 */
+	public ObjectiveBreakdown breakdown(Trajectory trajectory, PerformanceMetrics metrics) {
 		if (metrics == null || metrics.hasInvalidNumerics()) {
-			return Double.POSITIVE_INFINITY;
+			return null;
 		}
 		double settling = Double.isFinite(metrics.settlingTime())
 				? metrics.settlingTime()
 				: trajectory.endTime();
-		return weights.trackingErrorWeight() * metrics.iae()
-				+ weights.controlEffortWeight() * metrics.controlEffort()
-				+ weights.settlingTimeWeight() * settling
-				+ weights.overshootWeight() * metrics.overshoot();
+		double tracking = weights.trackingErrorWeight() * metrics.iae();
+		double effort = weights.controlEffortWeight() * metrics.controlEffort();
+		double settle = weights.settlingTimeWeight() * settling;
+		double overshoot = weights.overshootWeight() * metrics.overshoot();
+		return new ObjectiveBreakdown(tracking, effort, settle, overshoot, tracking + effort + settle + overshoot);
 	}
 }

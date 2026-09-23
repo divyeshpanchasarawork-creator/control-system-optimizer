@@ -34,6 +34,16 @@ class DifferentialEvolutionOptimizerTest {
 	}
 
 	@Test
+	void recordsConvergencePerGeneration() {
+		var config = new DifferentialEvolutionConfig(40, 25, 0.5, 0.9, 42);
+		OptimizationResult result = new DifferentialEvolutionOptimizer(config).optimize(quadratic());
+		// initial best + one entry per generation
+		org.junit.jupiter.api.Assertions.assertEquals(26, result.convergence().size());
+		org.junit.jupiter.api.Assertions.assertEquals(0, result.convergence().getFirst().generation());
+		org.junit.jupiter.api.Assertions.assertEquals(25, result.convergence().getLast().generation());
+	}
+
+	@Test
 	void sameSeedProducesIdenticalResult() {
 		var config = new DifferentialEvolutionConfig(40, 200, 0.5, 0.9, 42);
 		OptimizationResult first = new DifferentialEvolutionOptimizer(config).optimize(quadratic());

@@ -34,6 +34,31 @@ class WeightedControlObjectiveTest {
 		assertEquals(Double.POSITIVE_INFINITY, objective.evaluate(horizon(10, 0.01), metrics));
 	}
 
+	@Test
+	void breakdownSumsToObjective() {
+		var metrics = new PerformanceMetrics(0.1, 0.2, 3.0, 2.0, 10.0, 2.0, 4.0, 1.0);
+		ObjectiveBreakdown b = objective.breakdown(horizon(10, 0.01), metrics);
+		assertEquals(1.0 * 3.0, b.trackingError(), 1e-9);
+		assertEquals(0.1 * 4.0, b.controlEffort(), 1e-9);
+		assertEquals(0.5 * 2.0, b.settlingTime(), 1e-9);
+		assertEquals(0.5 * 10.0, b.overshoot(), 1e-9);
+		assertEquals(b.trackingError() + b.controlEffort() + b.settlingTime() + b.overshoot(), b.total(), 1e-9);
+		assertEquals(objective.evaluate(horizon(10, 0.01), metrics), b.total(), 1e-9);
+	}
+
+	@Test
+	void breakdownPenalizesUnsettledAtHorizon() {
+		var metrics = new PerformanceMetrics(0.1, 0.2, 3.0, 2.0, 10.0, Double.NaN, 4.0, 1.0);
+		ObjectiveBreakdown b = objective.breakdown(horizon(10, 0.01), metrics);
+		assertEquals(0.5 * 10.0, b.settlingTime(), 1e-9);
+	}
+
+	@Test
+	void breakdownIsNullForInvalidMetrics() {
+		var metrics = new PerformanceMetrics(0.1, 0.2, Double.NaN, 2.0, 10.0, 2.0, 4.0, 1.0);
+		assertEquals(null, objective.breakdown(horizon(10, 0.01), metrics));
+	}
+
 	private Trajectory horizon(double endTime, double timeStep) {
 		return new Trajectory(2, 1, List.of(
 				new TrajectoryPoint(0.0, new double[] { 0, 0 }, new double[] { 0 }, new double[] { 1, 0 }),

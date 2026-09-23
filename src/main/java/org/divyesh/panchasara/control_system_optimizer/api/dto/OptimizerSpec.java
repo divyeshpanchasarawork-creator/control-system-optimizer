@@ -11,6 +11,8 @@ package org.divyesh.panchasara.control_system_optimizer.api.dto;
  * @param crossoverRate      DE crossover probability CR
  * @param seed               DE random seed (deterministic; defaults to the
  *                           framework default when absent)
+ * @param includeCostSurface when true the grid search also returns the full
+ *                           objective surface over its grid (2-D only)
  */
 public record OptimizerSpec(
 		String type,
@@ -19,7 +21,8 @@ public record OptimizerSpec(
 		Integer maxIterations,
 		Double differentialWeight,
 		Double crossoverRate,
-		Long seed) {
+		Long seed,
+		Boolean includeCostSurface) {
 
 	public OptimizerSpec {
 		if (type == null || type.isBlank()) {

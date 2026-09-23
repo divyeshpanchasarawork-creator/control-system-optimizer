@@ -9,5 +9,6 @@ public record OptimizationRequest(
 		@NotNull @Valid GainBounds gainBounds,
 		@NotNull @Valid OptimizerSpec optimizer,
 		@NotNull @Valid ObjectiveSpec objective,
-		@NotNull @Valid SimulationConfig simulation) {
+		@NotNull @Valid SimulationConfig simulation,
+		@Valid ConstraintSpec constraints) {
 }
