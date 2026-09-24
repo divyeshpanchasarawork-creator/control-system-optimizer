@@ -4,9 +4,9 @@ import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 
 const LEARNING = {
-	optimize: 'The optimizer searches the gain box [Kp_min, Kp_max] × [Kd_min, Kd_max] for the pair K = (Kp, Kd) that minimizes the weighted objective J = wₑ·IAE + wᵤ·control effort + wₛ·settling time + wₒ·overshoot. Lower J = better tracking with less control effort. Grid search sweeps the box exhaustively (slow but complete) and returns the full cost surface. Differential evolution evolves a population using mutation (F) and crossover (CR): fast, seeded, and reproducible.',
-	objective: 'The four weights trade off competing goals. trackingError (wₑ) punishes accumulated deviation; control effort (wᵤ) punishes energetic command signals (actuator wear); settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference. Raise a weight to favor that property. The presets set sensible starting points.',
-	formula: 'J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O, where U is integrated control effort ∫|u|² dt, Tₛ is settling time (missing runs are penalized as the full horizon), O is overshoot %. Lower J is better.',
+	optimize: 'The optimizer searches the gain box [Kp_min, Kp_max] × [Kd_min, Kd_max] for the pair K = (Kp, Kd) that minimizes the weighted objective J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O, where U is control energy ∫u² dt. Lower J = better tracking with less control effort. Grid search sweeps the box exhaustively (slow but complete) and returns the full cost surface. Differential evolution evolves a population using mutation (F) and crossover (CR): fast, seeded, and reproducible.',
+	objective: 'The four weights trade off competing goals. trackingError (wₑ) punishes accumulated deviation; control energy (wᵤ) punishes commanding the actuator hard; settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference. Raise a weight to favor that property. The presets set sensible starting points.',
+	formula: 'J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O, where IAE is integrated position error ∫|r₁ − x₁| dt, U is control energy ∫u² dt, Tₛ is settling time (missing runs are penalized as the full horizon), O is overshoot %. Lower J is better.',
 	convergence: 'The convergence curve shows the best objective J found at each progression step. Grid search improves monotonically as it evaluates more of the box; DE improves per generation. When the curve flattens, extra iterations stop paying off.',
 	grid: 'Grid search evaluates every point on a resolution × resolution lattice over the gain box. Lower resolution = fast, coarse; higher resolution = fine, slow. With "Return cost surface" on, the response includes the full heatmap: dark blue is low J (good), white/null is infeasible.',
 	de: 'DE keeps a population of candidate gain vectors. Each generation it mutates members (differentialWeight F scales the difference between two members) and crosses them (crossoverRate CR mixes in mutant genes). maxIterations limits generations; seed makes the run deterministic.',
@@ -37,9 +37,24 @@ export function OptimizeTab() {
 	const breakdown = w.optimizerResult?.objectiveBreakdown
 	const constraintReport = w.optimizerResult?.constraints
 
+	const boundaryHits: string[] = []
+	if (w.optimizerResult?.feasible && w.optimizerResult.bestGain.length >= 2) {
+		const axes: { label: string; index: number }[] = [
+			{ label: 'Kp', index: 0 },
+			{ label: 'Kd', index: 1 },
+		]
+		for (const axis of axes) {
+			const best = w.optimizerResult.bestGain[axis.index]
+			if (Math.abs(best - w.gainLower[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (lower edge)`)
+			else if (Math.abs(best - w.gainUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (upper edge)`)
+		}
+	}
+
+	const shareOf = (value: number) => (breakdown && breakdown.total > 0 ? `${fmt((value / breakdown.total) * 100, 1)}% of J` : '')
+
 	const weights = [
 		{ label: 'Tracking error', symbol: 'trackingErrorWeight', value: w.trackingErrorWeight, hint: 'wₑ · weight on integrated absolute error (IAE).' },
-		{ label: 'Control effort', symbol: 'controlEffortWeight', value: w.controlEffortWeight, hint: 'wᵤ · weight on ∫|u|² dt. Higher keeps the actuator from saturating.' },
+		{ label: 'Control energy', symbol: 'controlEffortWeight', value: w.controlEffortWeight, hint: 'wᵤ · weight on ∫u² dt (N²·s). Higher keeps the actuator from working so hard.' },
 		{ label: 'Settling time', symbol: 'settlingTimeWeight', value: w.settlingTimeWeight, hint: 'wₛ · weight on time to settle. Non-settling runs are penalized as the full horizon.' },
 		{ label: 'Overshoot', symbol: 'overshootWeight', value: w.overshootWeight, hint: 'wₒ · weight on overshoot percentage.' },
 	]
@@ -106,7 +121,7 @@ export function OptimizeTab() {
 								<NumberField label="Grid resolution (per dim.)" hint="Samples per gain dimension. Total evaluations = resolution². 41 → 1,681 simulations, 101 → ~10,000."
 									value={w.gridResolution} min={2} max={101} step={1} onChange={(v) => w.update({ gridResolution: Math.round(v) })} />
 								<CheckField label="Return cost surface (2-D grid)" checked={w.includeCostSurface}
-									onChange={(v) => w.update({ includeCostSurface: v })} hint="When on, the response includes the full objective heatmap over the grid, plus per-cell IAE and control effort for the interactive tooltip." />
+									onChange={(v) => w.update({ includeCostSurface: v })} hint="When on, the response includes the full objective heatmap over the grid, plus per-cell IAE and control energy for the interactive tooltip." />
 							</div>
 							<div style={{ marginTop: 10 }}><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
 						</>
@@ -209,6 +224,14 @@ export function OptimizeTab() {
 						</div>
 					</Panel>
 
+					{boundaryHits.length > 0 && (
+						<div className="callout callout--info">
+							Boundary hit: {boundaryHits.join(' and ')} sit on the edge of the search box. The objective keeps
+							pushing these gains further, so the true optimum may lie outside the box. Expand the bound and
+							rerun to see if J improves.
+						</div>
+					)}
+
 					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid-3">
 							<MetricCard hint="Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r)." label="Best gain" value={`[${w.optimizerResult.bestGain.map((g) => fmt(g, 3)).join(', ')}]`} />
@@ -227,7 +250,7 @@ export function OptimizeTab() {
 
 						{w.optimizerType === 'DIFFERENTIAL_EVOLUTION' && (
 							<p className="faint" style={{ marginBottom: 0 }}>
-								Seeded search explores the box by sampling: this K is the best of that sample, not the box-wide optimum. Run grid search at the same resolution to confirm the exhaustive best.
+								Seeded search explores the box by sampling: this K is the best of that sample, not the box-wide optimum. Run grid search at the same bounds and compare its best J before calling either result optimal.
 							</p>
 						)}
 					</Panel>
@@ -236,14 +259,14 @@ export function OptimizeTab() {
 						<Panel title="Why this objective value?">
 							<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
 							<div className="objective-breakdown grid-3">
-								<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} />
-								<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} />
+								<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} sub={shareOf(breakdown.trackingError)} />
+								<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} sub={shareOf(breakdown.controlEffort)} />
 								<MetricCard
 									label={w.optimizerResult?.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
 									value={fmt(breakdown.settlingTime, 4)}
-									sub={w.optimizerResult?.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s` : 'Ts reached'}
+									sub={`${w.optimizerResult?.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s · ` : ''}${shareOf(breakdown.settlingTime)}`}
 								/>
-								<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} />
+								<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} sub={shareOf(breakdown.overshoot)} />
 								<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
 							</div>
 						</Panel>

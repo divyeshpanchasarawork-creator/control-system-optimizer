@@ -6,6 +6,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import static org.hamcrest.Matchers.notNullValue;
+import org.hamcrest.Description;
+import org.hamcrest.Matcher;
+import org.hamcrest.TypeSafeMatcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -137,6 +141,45 @@ class ApiIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.metrics.settlingTime").doesNotExist())
 				.andExpect(jsonPath("$.metrics.iae").isNumber());
+	}
+
+	@Test
+	void scalarPositionMetricsMatchSteadyStateFormula() throws Exception {
+		// gain [10,5] on m=1, c=0.5, k=2 leaves steady-state position x_ss = Kp/(k+Kp)*r
+		// = 10/12, so e_ss = k/(k+Kp)*r = 2/12 ~= 0.1667. Scalar position error
+		// starts at |r - x| = 1.0, so maxAbsError cannot exceed the step size.
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{"system":{"type":"SPRING_DAMPER","parameters":{"mass":1,"damping":0.5,"springConstant":2}},
+								"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+								"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":10,"timeStep":0.01}}
+								""".formatted()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.metrics.finalError").value(near(0.1667, 0.002)))
+				.andExpect(jsonPath("$.metrics.maxAbsError").value(near(1.0, 0.001)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand.length()").value(near(4, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[0].bandPercent").value(near(2, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[0].time").doesNotExist())
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[1].bandPercent").value(near(5, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[1].time").doesNotExist())
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[2].bandPercent").value(near(10, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[2].time").doesNotExist())
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[3].bandPercent").value(near(50, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[3].time").value(notNullValue()));
+	}
+
+	private static Matcher<Object> near(double expected, double tolerance) {
+		return new TypeSafeMatcher<>() {
+			@Override
+			protected boolean matchesSafely(Object item) {
+				return item instanceof Number n && Math.abs(n.doubleValue() - expected) <= tolerance;
+			}
+
+			@Override
+			public void describeTo(Description description) {
+				description.appendText("a number within " + tolerance + " of " + expected);
+			}
+		};
 	}
 
 	@Test

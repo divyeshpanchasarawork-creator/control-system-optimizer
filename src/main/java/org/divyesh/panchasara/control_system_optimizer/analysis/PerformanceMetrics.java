@@ -3,17 +3,20 @@ package org.divyesh.panchasara.control_system_optimizer.analysis;
 /**
  * Performance metrics derived from a simulated trajectory.
  *
- * Exact definitions (all integrals are trapezoidal over the discrete samples):
+ * All tracking quantities use the scalar position error e(t) = x1(t) - r1(t)
+ * (first state), so they carry position units and never mix in velocity. Exact
+ * definitions (all integrals are trapezoidal over the discrete samples):
  *
  * <ul>
- *   <li>{@code finalError} = |x(T) - r(T)|</li>
- *   <li>{@code maxAbsError} = max_t |x(t) - r(t)|</li>
- *   <li>{@code iae} = integral of |x(t) - r(t)| dt</li>
- *   <li>{@code ise} = integral of |x(t) - r(t)|^2 dt</li>
+ *   <li>{@code finalError} = |x1(T) - r1(T)|</li>
+ *   <li>{@code maxAbsError} = max_t |x1(t) - r1(t)|</li>
+ *   <li>{@code iae} = integral of |x1(t) - r1(t)| dt</li>
+ *   <li>{@code ise} = integral of (x1(t) - r1(t))^2 dt</li>
  *   <li>{@code overshoot} percentage: (peak - r0)/|r0| * 100 clamped to >= 0 for
  *       non-zero reference; 0.0 for a zero reference (see performance analyzer)</li>
  *   <li>{@code settlingTime}: first time t after which the error stays within a
- *       2% band of the reference norm forever; NaN if it never settles</li>
+ *       band (default 2%) of the reference position forever; NaN if it never
+ *       settles</li>
  *   <li>{@code controlEffort} = integral of u(t)^T u(t) dt</li>
  *   <li>{@code maxControl} = max_t ||u(t)||_2</li>
  * </ul>

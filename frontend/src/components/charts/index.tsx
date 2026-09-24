@@ -191,7 +191,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 					<span className="mono">Kp ~ row {hover.r}, Kd ~ col {hover.c}</span>
 					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : ` ${Number(hoverJ).toFixed(4)}`}</span>
 					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : Number(hoverIae).toFixed(3)}</span>}
-					{metricSurfaces && <span><b>Control effort</b> = {hoverEffort === null || hoverEffort === undefined ? 'n/a' : Number(hoverEffort).toFixed(3)}</span>}
+					{metricSurfaces && <span><b>Control energy (U = ∫u² dt)</b> = {hoverEffort === null || hoverEffort === undefined ? 'n/a' : Number(hoverEffort).toFixed(3)}</span>}
 				</div>
 			)}
 

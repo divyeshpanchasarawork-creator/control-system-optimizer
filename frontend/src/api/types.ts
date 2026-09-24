@@ -39,6 +39,11 @@ export interface TrajectoryPointDto {
 	reference: number[]
 }
 
+export interface SettlingBandTime {
+	band: number
+	time: number | null
+}
+
 export interface MetricsResponse {
 	finalError: number
 	maxAbsError: number
@@ -48,6 +53,7 @@ export interface MetricsResponse {
 	settlingTime: number | null
 	controlEffort: number
 	maxControl: number
+	settlingTimeByBand?: SettlingBandTime[]
 }
 
 export interface SimulationResponse {

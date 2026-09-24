@@ -49,13 +49,14 @@ public class SimulationService {
 		Trajectory trajectory = simulator.simulate(new SimulationSetup(system, controller,
 				settings.initialState(), settings.reference(), settings.startTime(), settings.endTime(), settings.timeStep()));
 		PerformanceMetrics metrics = performanceAnalyzer.analyze(trajectory, settings.settlingBandFraction());
+		var settlingBands = performanceAnalyzer.settlingBands(trajectory, PerformanceAnalyzer.DISPLAY_BANDS_PERCENT);
 
 		List<TrajectoryPointDto> points = trajectory.points().stream()
 				.map(p -> new TrajectoryPointDto(p.time(), p.state(), p.control(), p.reference()))
 				.toList();
 
 		return new SimulationResponse(system.systemType(), system.parameters(), request.controller(),
-				MetricsResponse.from(metrics), points);
+				MetricsResponse.from(metrics, settlingBands), points);
 	}
 
 	Controller buildController(ControllerSpec spec, int dimension) {

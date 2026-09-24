@@ -86,6 +86,42 @@ class PerformanceAnalyzerTest {
 	}
 
 	@Test
+	void settlingBandsReportsMultipleBandsInOnePass() {
+		// position errors 1.0, 0.4, 0.08, 0.08 against reference [1,0]
+		Trajectory trajectory = trajectory(new double[][] {
+				{ 0.0, 2.0, 0 },
+				{ 1.0, 1.4, 0 },
+				{ 2.0, 1.08, 0 },
+				{ 3.0, 1.08, 0 }
+		}, new double[] { 1.0, 0.0 });
+
+		List<SettlingBandResult> bands = analyzer.settlingBands(trajectory, 2, 5, 10, 50);
+
+		assertEquals(4, bands.size());
+		assertEquals(2, bands.get(0).bandPercent());
+		assertTrue(Double.isNaN(bands.get(0).settlingTime())); // 0.08 stays above the 2% band
+		assertEquals(5, bands.get(1).bandPercent());
+		assertTrue(Double.isNaN(bands.get(1).settlingTime())); // 0.08 stays above the 5% band
+		assertEquals(10, bands.get(2).bandPercent());
+		assertEquals(2.0, bands.get(2).settlingTime(), 1e-9); // only the first two samples violate
+		assertEquals(50, bands.get(3).bandPercent());
+		assertEquals(1.0, bands.get(3).settlingTime(), 1e-9); // only the first sample violates
+	}
+
+	@Test
+	void settlingBandsAreUndefinedForZeroReference() {
+		Trajectory trajectory = trajectory(new double[][] {
+				{ 0.0, 0.5, 0 },
+				{ 1.0, 0.2, 0 }
+		}, new double[] { 0.0, 0.0 });
+
+		List<SettlingBandResult> bands = analyzer.settlingBands(trajectory, 2, 5, 10, 50);
+		for (SettlingBandResult band : bands) {
+			assertTrue(Double.isNaN(band.settlingTime()));
+		}
+	}
+
+	@Test
 	void widerBandReportsEarlierOrEqualSettling() {
 		Trajectory trajectory = trajectory(new double[][] {
 				{ 0.0, 1.3, 0 },

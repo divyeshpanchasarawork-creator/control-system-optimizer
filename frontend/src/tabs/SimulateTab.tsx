@@ -16,7 +16,7 @@ function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbs
 const LEARNING = {
 	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step.',
 	stability: 'The closed-loop pole map plots the eigenvalues of A − BK (state feedback has no finite zeros). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
-	metrics: 'IAE and ISE measure how much the state deviates from the reference. IAE penalizes error linearly, ISE squares it (so large errors hurt more). Overshoot is how far the response exceeds the target. Settling time is when the response stays within the settling band; if it never does, it shows "Not reached". Control effort is the integrated magnitude of u.',
+	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| stays inside the chosen band; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand; Max |u| is its peak.',
 	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (1/s² units of force authority) and Kd the velocity error.',
 	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference. Without it, u = −Kx drives the state to the origin instead.',
 }
@@ -178,7 +178,7 @@ export function SimulateTab() {
 					<div className="grid-3">
 						<MetricCard label="Damping ratio ζ" value={poleInfo.zeta === null ? 'n/a' : fmt(poleInfo.zeta, 3)} hint="ζ from the closed-loop poles. Below 1 the response rings, above 1 it crawls. n/a when the poles are real." />
 						<MetricCard label="Natural frequency ωₙ" value={poleInfo.omegaN === null ? 'n/a' : fmt(poleInfo.omegaN, 3)} sub="rad/s" hint="Undamped angular frequency from the pole magnitude." />
-						<MetricCard label="Settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="2% rule of thumb from the dominant pole: 4 / |Re λ|." />
+						<MetricCard label="Pole-based settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="A model estimate from the dominant pole (2% rule: 4 / |Re λ|), not the measured settling time. The measured value is under Metrics." />
 					</div>
 				</Panel>
 			)}
@@ -189,15 +189,15 @@ export function SimulateTab() {
 						<div className="metric-group">
 							<p className="metric-group__label">Tracking quality</p>
 							<div className="grid-3">
-								<MetricCard hint={LEARNING.metrics} label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
-								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="integral of |error|" />
-								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="integral of error²" />
+								<MetricCard hint="Measured |r₁ − x₁| at the end of the horizon. With PD feedback a static offset can remain; see the steady-state error note below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
+								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
+								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
 							</div>
 						</div>
 						<div className="metric-group">
 							<p className="metric-group__label">Transient response</p>
 							<div className="grid-3">
-								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} tone={metricTone(metrics, 'maxAbsError')} />
+								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricTone(metrics, 'maxAbsError')} />
 								<MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricTone(metrics, 'overshoot')} />
 								<MetricCard hint={`Settling time. When the response stays within the ${settlingBand}% band and never leaves it. "Not reached" means the response never settles within the horizon.`}
 									label="Settling time" value={metrics.settlingTime === null ? 'Not reached' : `${fmt(metrics.settlingTime)} s`} sub={`${settlingBand}% band`} />
@@ -206,13 +206,53 @@ export function SimulateTab() {
 						<div className="metric-group">
 							<p className="metric-group__label">Control signal</p>
 							<div className="grid-3">
-								<MetricCard hint={LEARNING.metrics} label="Control effort" value={fmt(metrics.controlEffort, 4)} sub="integral of |u|²" />
+								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
 								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Max |u|" value={fmt(metrics.maxControl)} />
 							</div>
 						</div>
 					</>
 				) : (
 					<div className="empty">Run a simulation to see metrics.</div>
+				)}
+			</Panel>
+
+			{w.tracking && (
+				<Panel title="Steady-state error">
+					<p className="faint" style={{ marginTop: 0 }}>
+						With u = −K(x − r), state feedback alone cannot cancel the spring's static load. The position
+						settles at x_ss = Kp/(k + Kp) · r₁, so the steady-state error is e_ss = k/(k + Kp) · r₁.
+						{gain[0] + w.springConstant !== 0 ? (
+							<span> For these gains e_ss = {fmt((w.springConstant / (w.springConstant + gain[0])) * w.reference[0], 4)} m, matching the measured Final error above.</span>
+						) : (
+							<span> (undefined: k + Kp = 0).</span>
+						)}{' '}
+						Raising Kp shrinks the offset but never removes it. Add integral action (PID, or a state
+						augmented with ∫e dt) to drive e_ss to zero.
+					</p>
+				</Panel>
+			)}
+
+			<Panel title="Settling time across bands">
+				<p className="faint" style={{ marginTop: 0 }}>The same run measured against four tolerance bands. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
+				{metrics?.settlingTimeByBand?.length ? (
+					<table className="data">
+						<thead>
+							<tr>
+								<th>Band</th>
+								<th>Measured settling time</th>
+							</tr>
+						</thead>
+						<tbody>
+							{metrics.settlingTimeByBand.map((b) => (
+								<tr key={b.band}>
+									<td>{b.band}% of |r|</td>
+									<td>{b.time === null ? 'Not reached' : `${fmt(b.time, 3)} s`}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				) : (
+					<div className="empty">Run a simulation to see settling at each band.</div>
 				)}
 			</Panel>
 

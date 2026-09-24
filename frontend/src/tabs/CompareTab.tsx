@@ -26,7 +26,7 @@ const METRIC_GROUPS: { label: string; keys: { key: keyof MetricsResponse | 'sett
 	{
 		label: 'Control signal',
 		keys: [
-			{ key: 'controlEffort', name: 'Control effort', lowerBetter: true },
+			{ key: 'controlEffort', name: 'Control energy', lowerBetter: true },
 			{ key: 'maxControl', name: 'Max |u|', lowerBetter: true },
 		],
 	},
@@ -67,7 +67,7 @@ function tradeoffSentence(manual: MetricsResponse, optimized: MetricsResponse): 
 	if (improved.length > 0 && degraded.length > 0) {
 		const best = improved[0]
 		const worst = degraded[0]
-		return `The optimizer trimmed ${best.k.name.toLowerCase()} by ${fmt(Math.abs(best.rel), 1)}% but accepted a ${fmt(Math.abs(worst.rel), 1)}% rise in ${worst.k.name.toLowerCase()}. Under the current weights that trade-off won.`
+		return `The optimizer trimmed ${best.k.name.toLowerCase()} by ${fmt(Math.abs(best.rel), 1)}% but accepted a ${fmt(Math.abs(worst.rel), 1)}% rise in ${worst.k.name.toLowerCase()}. Under the current weights it accepted that trade-off.`
 	}
 	if (improved.length > 0) return `The optimizer improved ${improved.length} of ${deltas.length} measurable metrics; the largest win was ${improved[0].k.name.toLowerCase()} at ${fmt(Math.abs(improved[0].rel), 1)}%.`
 	if (degraded.length > 0) return `The optimizer did not beat your manual gain on any metric; the largest regression was ${degraded[0].k.name.toLowerCase()} at ${fmt(degraded[0].rel, 1)}%.`
@@ -100,6 +100,7 @@ export function CompareTab() {
 	}
 
 	const breakdown = opt?.objectiveBreakdown
+	const shareOf = (v: number) => (breakdown && breakdown.total > 0 ? `${fmt((v / breakdown.total) * 100, 1)}% of J` : '')
 
 	return (
 		<div className="stack">
@@ -127,14 +128,14 @@ export function CompareTab() {
 				<Panel title="Objective breakdown at the optimized gain">
 					<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O at K*. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
 					<div className="grid-3">
-						<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} />
-						<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} />
+						<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} sub={shareOf(breakdown.trackingError)} />
+						<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} sub={shareOf(breakdown.controlEffort)} />
 						<MetricCard
 							label={opt.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
 							value={fmt(breakdown.settlingTime, 4)}
-							sub={opt.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s` : 'Ts reached'}
+							sub={`${opt.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s · ` : ''}${shareOf(breakdown.settlingTime)}`}
 						/>
-						<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} />
+						<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} sub={shareOf(breakdown.overshoot)} />
 						<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
 					</div>
 				</Panel>
