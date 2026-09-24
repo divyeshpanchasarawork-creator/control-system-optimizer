@@ -16,6 +16,7 @@ public final class StateFeedbackController implements Controller {
 
 	private final RealMatrix k;
 	private final boolean tracking;
+	private final double[] singleRow;
 
 	/**
 	 * @param k        feedback gain matrix of dimension {@code m x n}
@@ -28,6 +29,7 @@ public final class StateFeedbackController implements Controller {
 		}
 		this.k = k;
 		this.tracking = tracking;
+		this.singleRow = k.getRowDimension() == 1 ? k.getRow(0) : null;
 	}
 
 	/**
@@ -54,15 +56,21 @@ public final class StateFeedbackController implements Controller {
 			throw new IllegalArgumentException(
 					"State has wrong dimension: expected " + k.getColumnDimension() + " got " + state.length);
 		}
+		if (singleRow != null) {
+			double u = 0.0;
+			for (int i = 0; i < state.length; i++) {
+				double x = state[i] - (tracking ? reference[i] : 0.0);
+				u -= singleRow[i] * x;
+			}
+			return new double[] { u };
+		}
 		double[] error = new double[state.length];
 		for (int i = 0; i < state.length; i++) {
 			error[i] = state[i] - (tracking ? reference[i] : 0.0);
 		}
-		RealMatrix e = new Array2DRowRealMatrix(error);
-		RealMatrix u = k.multiply(e).scalarMultiply(-1.0);
-		double[] result = u.getColumn(0);
-		if (result.length == 1) {
-			return new double[] { result[0] };
+		double[] result = k.operate(error);
+		for (int i = 0; i < result.length; i++) {
+			result[i] = -result[i];
 		}
 		return result;
 	}

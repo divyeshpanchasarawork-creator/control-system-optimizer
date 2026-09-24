@@ -24,6 +24,7 @@ import org.divyesh.panchasara.control_system_optimizer.optimization.Differential
 import org.divyesh.panchasara.control_system_optimizer.optimization.GridSearchConfig;
 import org.divyesh.panchasara.control_system_optimizer.optimization.ObjectiveBreakdown;
 import org.divyesh.panchasara.control_system_optimizer.optimization.ObjectiveWeights;
+import org.divyesh.panchasara.control_system_optimizer.optimization.MetricReference;
 import org.divyesh.panchasara.control_system_optimizer.optimization.OptimizationProblem;
 import org.divyesh.panchasara.control_system_optimizer.optimization.OptimizationResult;
 import org.divyesh.panchasara.control_system_optimizer.optimization.Optimizer;
@@ -73,7 +74,11 @@ public class OptimizationService {
 		}
 
 		SimulationSettings simulation = simulationService.toSettings(request.simulation(), n);
-		WeightedControlObjective objective = new WeightedControlObjective(toWeights(request.objective()));
+		ObjectiveWeights weights = toWeights(request.objective());
+		WeightedControlObjective rawObjective = new WeightedControlObjective(weights);
+		MetricReference reference = baselineReference(system, tracking, simulation, request.baselineGain(), rawObjective);
+		WeightedControlObjective objective = reference == null ? rawObjective
+				: new WeightedControlObjective(weights, reference);
 		Constraints constraints = toConstraints(request.constraints());
 
 		String[] names = new String[n];
@@ -90,15 +95,18 @@ public class OptimizationService {
 
 		OptimizationResult result = buildOptimizer(request.optimizer()).optimize(problem);
 
-		return assemble(system, tracking, simulation, objective, constraints, result,
+		boolean boundaryHit = boundaryHit(result, bounds.lower(), bounds.upper());
+
+		return assemble(system, tracking, simulation, objective, constraints, result, boundaryHit,
 				(System.nanoTime() - startNanos) / 1_000_000);
 	}
 
 	private OptimizationResponse assemble(DynamicSystem system, boolean tracking, SimulationSettings simulation,
-			WeightedControlObjective objective, Constraints constraints, OptimizationResult result, long elapsedMillis) {
+			WeightedControlObjective objective, Constraints constraints, OptimizationResult result, boolean boundaryHit,
+			long elapsedMillis) {
 		if (!result.feasible() || result.bestParameters() == null) {
 			return new OptimizationResponse(result.optimizerType(), null, null, result.evaluations(), false,
-					result.converged(), result.seed(), null, null, elapsedMillis, result.convergence(),
+					result.converged(), result.seed(), null, null, false, elapsedMillis, result.convergence(),
 					result.costSurface(), result.config(), null, null, MetricSurfacesResponse.from(result.metricSurfaces()));
 		}
 		ControlProblemFactory.DetailedEvaluation evaluation =
@@ -109,11 +117,45 @@ public class OptimizationService {
 		return new OptimizationResponse(result.optimizerType(), evaluation.gains(),
 				Double.isFinite(evaluation.cost()) ? evaluation.cost() : null, result.evaluations(),
 				evaluation.feasible(), result.converged(), result.seed(), stability,
-				metrics == null ? null : MetricsResponse.from(metrics), elapsedMillis, result.convergence(),
+				metrics == null ? null : MetricsResponse.from(metrics), boundaryHit, elapsedMillis, result.convergence(),
 				result.costSurface(), result.config(),
 				breakdown == null ? null : ObjectiveBreakdownResponse.from(breakdown),
 				constraints == null || metrics == null ? null : constraintReport(constraints, evaluation),
 				MetricSurfacesResponse.from(result.metricSurfaces()));
+	}
+
+	/**
+	 * Builds normalization references from the request's baseline gain (the
+	 * user's manual configuration), or {@code null} when there is no baseline or
+	 * the baseline cannot be evaluated. With no reference the objective keeps its
+	 * raw weighted form.
+	 */
+	private MetricReference baselineReference(DynamicSystem system, boolean tracking, SimulationSettings simulation,
+			double[] baselineGain, WeightedControlObjective anyObjective) {
+		if (baselineGain == null || baselineGain.length != system.dimension()) {
+			return null;
+		}
+		ControlProblemFactory.DetailedEvaluation evaluation =
+				problemFactory.evaluateCandidate(system, tracking, simulation, anyObjective, null, baselineGain);
+		PerformanceMetrics metrics = evaluation.metrics();
+		if (metrics == null || !evaluation.feasible()) {
+			return null;
+		}
+		double settling = Double.isFinite(metrics.settlingTime()) ? metrics.settlingTime() : simulation.endTime();
+		return new MetricReference(metrics.iae(), metrics.controlEffort(), settling, metrics.overshoot());
+	}
+
+	private boolean boundaryHit(OptimizationResult result, double[] lower, double[] upper) {
+		if (result.bestParameters() == null) {
+			return false;
+		}
+		for (int i = 0; i < result.bestParameters().length; i++) {
+			double value = result.bestParameters()[i];
+			if (Double.isFinite(value) && (Math.abs(value - lower[i]) < 1e-9 || Math.abs(value - upper[i]) < 1e-9)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private List<ConstraintReportResponse> constraintReport(Constraints constraints,

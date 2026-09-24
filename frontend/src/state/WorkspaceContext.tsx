@@ -246,7 +246,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		} finally {
 			setLoading(null)
 		}
-	}, [mass, damping, springConstant, tracking, gainLower, gainUpper, optimizerType, gridResolution, includeCostSurface, populationSize, maxIterations, differentialWeight, crossoverRate, seed, trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight, initialState, reference, endTime, timeStep, settlingBand, constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime])
+	}, [mass, damping, springConstant, tracking, gainLower, gainUpper, optimizerType, gridResolution, includeCostSurface, populationSize, maxIterations, differentialWeight, crossoverRate, seed, trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight, initialState, reference, endTime, timeStep, settlingBand, constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, manualGain])
 
 	const applyOptimizedGain = useCallback(() => {
 		if (optimizedGain) {

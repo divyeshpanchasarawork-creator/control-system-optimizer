@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import static org.hamcrest.Matchers.notNullValue;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -157,15 +156,35 @@ class ApiIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.metrics.finalError").value(near(0.1667, 0.002)))
 				.andExpect(jsonPath("$.metrics.maxAbsError").value(near(1.0, 0.001)))
-				.andExpect(jsonPath("$.metrics.settlingTimeByBand.length()").value(near(4, 0)))
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand.length()").value(near(3, 0)))
 				.andExpect(jsonPath("$.metrics.settlingTimeByBand[0].bandPercent").value(near(2, 0)))
 				.andExpect(jsonPath("$.metrics.settlingTimeByBand[0].time").doesNotExist())
 				.andExpect(jsonPath("$.metrics.settlingTimeByBand[1].bandPercent").value(near(5, 0)))
 				.andExpect(jsonPath("$.metrics.settlingTimeByBand[1].time").doesNotExist())
 				.andExpect(jsonPath("$.metrics.settlingTimeByBand[2].bandPercent").value(near(10, 0)))
-				.andExpect(jsonPath("$.metrics.settlingTimeByBand[2].time").doesNotExist())
-				.andExpect(jsonPath("$.metrics.settlingTimeByBand[3].bandPercent").value(near(50, 0)))
-				.andExpect(jsonPath("$.metrics.settlingTimeByBand[3].time").value(notNullValue()));
+				.andExpect(jsonPath("$.metrics.settlingTimeByBand[2].time").doesNotExist());
+	}
+
+	@Test
+	void verificationEndpointReportsPasteAbleGoldenNumbers() throws Exception {
+		mockMvc.perform(post("/api/verification/run"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("PASS"))
+				.andExpect(jsonPath("$.goldenCases.length()").value(near(3, 0)))
+				.andExpect(jsonPath("$.goldenCases[0].id").value("golden-1"))
+				.andExpect(jsonPath("$.goldenCases[1].id").value("golden-2"))
+				.andExpect(jsonPath("$.goldenCases[2].id").value("golden-3"))
+				.andExpect(jsonPath("$.goldenCases[1].poleRe").value(near(-2.75, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[1].omegaN").value(near(3.4641, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[1].idealPosition").value(near(0.8333, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[1].steadyStateError").value(near(0.1667, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[1].analyticControlAtZero").value(near(10.0, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[2].poleRe").value(near(-1.6141, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[2].omegaN").value(near(1.9437, 1e-3)))
+				.andExpect(jsonPath("$.goldenCases[2].steadyStateError").value(near(0.5294, 1e-3)))
+				.andExpect(jsonPath("$.convergence.length()").value(near(3, 0)))
+				.andExpect(jsonPath("$.consistency.length()").value(near(3, 0)))
+				.andExpect(jsonPath("$.crossValidation.length()").value(near(2, 0)));
 	}
 
 	private static Matcher<Object> near(double expected, double tolerance) {
@@ -192,7 +211,11 @@ class ApiIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.objectiveBreakdown").exists())
 				.andExpect(jsonPath("$.objectiveBreakdown.total").isNumber())
-				.andExpect(jsonPath("$.objectiveBreakdown.trackingError").isNumber());
+				.andExpect(jsonPath("$.objectiveBreakdown.normalized").isBoolean())
+				.andExpect(jsonPath("$.objectiveBreakdown.terms.length()").value(near(4, 0)))
+				.andExpect(jsonPath("$.objectiveBreakdown.terms[0].key").value("trackingError"))
+				.andExpect(jsonPath("$.objectiveBreakdown.terms[0].contribution").isNumber())
+				.andExpect(jsonPath("$.objectiveBreakdown.terms[0].sharePercent").isNumber());
 	}
 
 	@Test

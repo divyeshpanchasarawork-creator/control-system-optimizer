@@ -129,14 +129,24 @@ export interface OptimizationRequest {
 	objective: ObjectiveSpec
 	constraints?: ConstraintSpec
 	simulation: SimulationConfig
+	baselineGain?: number[]
+}
+
+export interface ObjectiveTerm {
+	key: 'trackingError' | 'controlEffort' | 'settlingTime' | 'overshoot'
+	name: string
+	raw: number
+	reference: number
+	normalized: number
+	weight: number
+	contribution: number
+	sharePercent: number
 }
 
 export interface ObjectiveBreakdown {
-	trackingError: number
-	controlEffort: number
-	settlingTime: number
-	overshoot: number
+	normalized: boolean
 	total: number
+	terms: ObjectiveTerm[]
 }
 
 export interface ConstraintReport {
@@ -162,6 +172,7 @@ export interface OptimizationResponse {
 	seed: number | null
 	stability: StabilityResponse
 	metrics: MetricsResponse
+	boundaryHit: boolean
 	elapsedMillis: number
 	convergence: ConvergencePoint[]
 	costSurface: (number | null)[][] | null

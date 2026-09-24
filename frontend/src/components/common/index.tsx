@@ -231,3 +231,56 @@ export function ObjectiveBars({ weights, onChange }: {
 		</div>
 	)
 }
+
+export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }: {
+	breakdown: {
+		normalized: boolean
+		total: number
+		terms: { key: string; name: string; raw: number; reference: number; normalized: number; weight: number; contribution: number; sharePercent: number }[]
+	}
+	notSettled?: boolean
+	baselineNote?: string
+}) {
+	const dash = '\u2014'
+	return (
+		<div className="stack">
+			<p className="faint" style={{ marginTop: 0 }}>
+				{breakdown.normalized
+					? 'J = Σ wᵢ·(metricᵢ / referenceᵢ), normalized against your manual gain. A normalized value of 1.0 means the candidate matches your manual gain on that metric; below 1 is better, above is worse. Weighted contributions sum to J.'
+					: `J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O with raw weighting ${baselineNote ?? '(no manual-gain baseline was used, or the baseline could not be evaluated)'}. When a run never settles, the settling term is penalized as the full horizon.`}
+			</p>
+			<table className="data">
+				<thead>
+					<tr>
+						<th>Metric</th>
+						<th>Raw</th>
+						<th>Ref</th>
+						<th>Norm.</th>
+						<th>Weight</th>
+						<th>Weighted</th>
+						<th>% of J</th>
+					</tr>
+				</thead>
+				<tbody>
+					{breakdown.terms.map((t) => (
+						<tr key={t.key}>
+							<td>{t.name}</td>
+							<td className="mono">{fmt(t.raw, 4)}</td>
+							<td className="mono">{breakdown.normalized ? fmt(t.reference, 4) : dash}</td>
+							<td className={`mono ${breakdown.normalized && t.normalized > 1.0001 ? 'delta--bad' : ''}`}>
+								{breakdown.normalized ? fmt(t.normalized, 3) : dash}
+							</td>
+							<td className="mono">{fmt(t.weight, 3)}</td>
+							<td className="mono">{fmt(t.contribution, 4)}</td>
+							<td className="mono">{fmt(t.sharePercent, 1)}%</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+			<div className="row row--between">
+				<span className="faint">{notSettled ? 'Settling never reached within the band: the raw settling term is the full horizon.' : ''}</span>
+				<span className="mono">J = {fmt(breakdown.total, 4)}</span>
+			</div>
+		</div>
+	)
+}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
-import { Badge, Callout, Learn, MetricCard, Panel } from '../components/common'
+import { Badge, Callout, Learn, MetricCard, ObjectiveBreakdownTable, Panel } from '../components/common'
 import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
@@ -27,7 +27,7 @@ const METRIC_GROUPS: { label: string; keys: { key: keyof MetricsResponse | 'sett
 		label: 'Control signal',
 		keys: [
 			{ key: 'controlEffort', name: 'Control energy', lowerBetter: true },
-			{ key: 'maxControl', name: 'Max |u|', lowerBetter: true },
+			{ key: 'maxControl', name: 'Peak force', lowerBetter: true },
 		],
 	},
 ]
@@ -100,7 +100,6 @@ export function CompareTab() {
 	}
 
 	const breakdown = opt?.objectiveBreakdown
-	const shareOf = (v: number) => (breakdown && breakdown.total > 0 ? `${fmt((v / breakdown.total) * 100, 1)}% of J` : '')
 
 	return (
 		<div className="stack">
@@ -113,6 +112,9 @@ export function CompareTab() {
 			</Learn>
 
 			<Panel title="Run both controllers">
+				<div className="row">
+					<span className="faint">Both runs integrate the same plant from Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N·s/m, k = {fmt(w.springConstant)} N/m.</span>
+				</div>
 				<div className="row row--between">
 					<span className="faint">Manual K = [{fmt(w.manualGain[0])}, {fmt(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmt(w.optimizedGain[0])}, ${fmt(w.optimizedGain[1])}]` : ''}</span>
 					<button className="btn primary" onClick={() => void runBoth()} disabled={!w.optimizedGain}>
@@ -126,18 +128,7 @@ export function CompareTab() {
 
 			{opt && breakdown && (
 				<Panel title="Objective breakdown at the optimized gain">
-					<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O at K*. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
-					<div className="grid-3">
-						<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} sub={shareOf(breakdown.trackingError)} />
-						<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} sub={shareOf(breakdown.controlEffort)} />
-						<MetricCard
-							label={opt.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
-							value={fmt(breakdown.settlingTime, 4)}
-							sub={`${opt.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s · ` : ''}${shareOf(breakdown.settlingTime)}`}
-						/>
-						<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} sub={shareOf(breakdown.overshoot)} />
-						<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
-					</div>
+					<ObjectiveBreakdownTable breakdown={breakdown} notSettled={opt.metrics?.settlingTime === null} />
 				</Panel>
 			)}
 

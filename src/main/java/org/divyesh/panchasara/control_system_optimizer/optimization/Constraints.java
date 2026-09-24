@@ -21,7 +21,7 @@ public record Constraints(Double maxControl, Double maxOvershoot, Double maxSett
 
 	public ConstraintReport check(double maxControlAchieved, double overshootAchieved, Double settlingTimeAchieved) {
 		ControlLimit control = maxControl == null ? null
-				: new ControlLimit("max-control", "Max control effort", maxControl, maxControlAchieved,
+				: new ControlLimit("max-control", "Peak force", maxControl, maxControlAchieved,
 						maxControlAchieved <= maxControl);
 		ControlLimit overshoot = maxOvershoot == null ? null
 				: new ControlLimit("max-overshoot", "Max overshoot", maxOvershoot, overshootAchieved,

@@ -10,5 +10,6 @@ public record OptimizationRequest(
 		@NotNull @Valid OptimizerSpec optimizer,
 		@NotNull @Valid ObjectiveSpec objective,
 		@NotNull @Valid SimulationConfig simulation,
-		@Valid ConstraintSpec constraints) {
+		@Valid ConstraintSpec constraints,
+		double[] baselineGain) {
 }

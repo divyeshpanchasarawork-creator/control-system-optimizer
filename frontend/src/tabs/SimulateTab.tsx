@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { CheckField, GainField, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
 import { fmt } from '../components/common'
-import { PoleZeroChart, TrajectoryChart } from '../components/charts'
+import { ErrorChart, PoleZeroChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 import { poleSummary } from '../lib/poles'
 import type { SimulationResponse } from '../api/types'
@@ -16,7 +16,7 @@ function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbs
 const LEARNING = {
 	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step.',
 	stability: 'The closed-loop pole map plots the eigenvalues of A − BK (state feedback has no finite zeros). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
-	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| stays inside the chosen band; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand; Max |u| is its peak.',
+	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| stays inside the chosen band; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand; Peak force is its largest single value.',
 	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (1/s² units of force authority) and Kd the velocity error.',
 	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference. Without it, u = −Kx drives the state to the origin instead.',
 }
@@ -164,6 +164,12 @@ export function SimulateTab() {
 				</Panel>
 			</div>
 
+			<div className="charts-grid">
+				<Panel title="Error e(t)" right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
+					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <div className="empty">No simulation yet</div>}
+				</Panel>
+			</div>
+
 			<div className="charts-grid charts-grid--2a">
 				<Panel title="Velocity x₂(t)">
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <div className="empty">No simulation yet</div>}
@@ -207,7 +213,7 @@ export function SimulateTab() {
 							<p className="metric-group__label">Control signal</p>
 							<div className="grid-3">
 								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
-								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Max |u|" value={fmt(metrics.maxControl)} />
+								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
 							</div>
 						</div>
 					</>

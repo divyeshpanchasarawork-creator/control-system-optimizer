@@ -16,6 +16,7 @@ public record OptimizationResponse(
 		Long seed,
 		StabilityResult stability,
 		MetricsResponse metrics,
+		boolean boundaryHit,
 		long elapsedMillis,
 		List<ConvergencePoint> convergence,
 		Double[][] costSurface,

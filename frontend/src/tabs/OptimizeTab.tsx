@@ -1,4 +1,4 @@
-import { CheckField, Learn, MetricCard, NumberField, ObjectiveBars, Panel, SelectField } from '../components/common'
+import { CheckField, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -37,7 +37,7 @@ export function OptimizeTab() {
 	const breakdown = w.optimizerResult?.objectiveBreakdown
 	const constraintReport = w.optimizerResult?.constraints
 
-	const boundaryHits: string[] = []
+const boundaryHits: string[] = []
 	if (w.optimizerResult?.feasible && w.optimizerResult.bestGain.length >= 2) {
 		const axes: { label: string; index: number }[] = [
 			{ label: 'Kp', index: 0 },
@@ -49,8 +49,7 @@ export function OptimizeTab() {
 			else if (Math.abs(best - w.gainUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (upper edge)`)
 		}
 	}
-
-	const shareOf = (value: number) => (breakdown && breakdown.total > 0 ? `${fmt((value / breakdown.total) * 100, 1)}% of J` : '')
+	const boundaryHit = w.optimizerResult?.boundaryHit ?? false
 
 	const weights = [
 		{ label: 'Tracking error', symbol: 'trackingErrorWeight', value: w.trackingErrorWeight, hint: 'wₑ · weight on integrated absolute error (IAE).' },
@@ -77,6 +76,17 @@ export function OptimizeTab() {
 				<p>{LEARNING.optimize}</p>
 				<p>{LEARNING.objective}</p>
 			</Learn>
+
+			<p className="section-label">Plant · the physics</p>
+			<Panel>
+				<div className="row">
+					<span className="faint">
+						This optimization searches over the plant set in the Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N
+						·s/m, k = {fmt(w.springConstant)} N/m. Every evaluation integrates that plant, so results stay comparable with
+						your manual run.
+					</span>
+				</div>
+			</Panel>
 
 			<section>
 				<p className="section-label">Step 1 · Search space</p>
@@ -167,7 +177,7 @@ export function OptimizeTab() {
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
 					{w.constraintsEnabled && (
 						<div style={{ marginTop: 12 }} className="form-grid">
-							<NumberField label="Max |u|" unit="force" hint="Ceiling on the peak actuator command. Candidates exceeding it are infeasible."
+							<NumberField label="Peak force" unit="force" hint="Ceiling on the peak actuator command. Candidates exceeding it are infeasible."
 								value={Number.isFinite(w.maxControl) ? w.maxControl : 0} min={0} step={1} onChange={(v) => w.update({ maxControl: v })} />
 							<NumberField label="Max overshoot" unit="%" hint="Ceiling on overshoot percentage."
 								value={Number.isFinite(w.maxOvershoot) ? w.maxOvershoot : 0} min={0} step={1} onChange={(v) => w.update({ maxOvershoot: v })} />
@@ -224,11 +234,21 @@ export function OptimizeTab() {
 						</div>
 					</Panel>
 
-					{boundaryHits.length > 0 && (
+					{boundaryHit && (
 						<div className="callout callout--info">
-							Boundary hit: {boundaryHits.join(' and ')} sit on the edge of the search box. The objective keeps
-							pushing these gains further, so the true optimum may lie outside the box. Expand the bound and
-							rerun to see if J improves.
+							{boundaryHits.length > 0 ? (
+								<>
+									Boundary hit: {boundaryHits.join(' and ')} sit on the edge of the search box. The objective keeps
+									pushing these gains further, so the true optimum may lie outside the box. Expand the bound and
+									rerun to see if J improves.
+								</>
+							) : (
+								<>
+									The best candidate sits on the edge of the search box. The objective keeps pushing these gains
+									further, so the true optimum may lie outside the box. Expand the bound and rerun to see if J
+									improves.
+								</>
+							)}
 						</div>
 					)}
 
@@ -256,19 +276,12 @@ export function OptimizeTab() {
 					</Panel>
 
 					{breakdown && (
-						<Panel title="Why this objective value?">
-							<p className="faint" style={{ marginTop: 0 }}>J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O. When a run never settles, the settling term is penalized as the full horizon ({fmt(w.endTime)} s).</p>
-							<div className="objective-breakdown grid-3">
-								<MetricCard label="Tracking (wₑ·IAE)" value={fmt(breakdown.trackingError, 4)} sub={shareOf(breakdown.trackingError)} />
-								<MetricCard label="Control (wᵤ·U)" value={fmt(breakdown.controlEffort, 4)} sub={shareOf(breakdown.controlEffort)} />
-								<MetricCard
-									label={w.optimizerResult?.metrics?.settlingTime === null ? 'Settling penalty (wₛ·Tₛ)' : 'Settling (wₛ·Tₛ)'}
-									value={fmt(breakdown.settlingTime, 4)}
-									sub={`${w.optimizerResult?.metrics?.settlingTime === null ? `Ts not reached · full horizon ${fmt(w.endTime)} s · ` : ''}${shareOf(breakdown.settlingTime)}`}
-								/>
-								<MetricCard label="Overshoot (wₒ·O)" value={fmt(breakdown.overshoot, 4)} sub={shareOf(breakdown.overshoot)} />
-								<MetricCard label="Total J" value={fmt(breakdown.total, 4)} tone="neutral" />
-							</div>
+						<Panel title="Why this objective value?" right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the normalization reference (your manual gain), the normalized ratio (1.0 = same as manual), the weight, the weighted contribution and its share of J.</p></Learn>}>
+							<ObjectiveBreakdownTable
+								breakdown={breakdown}
+								notSettled={w.optimizerResult?.metrics?.settlingTime === null}
+								baselineNote={`the manual gain K = [${w.manualGain.map((g) => fmt(g, 3)).join(', ')}] could not be used as the baseline`}
+							/>
 						</Panel>
 					)}
 

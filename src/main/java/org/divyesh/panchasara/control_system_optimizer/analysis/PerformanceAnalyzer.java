@@ -24,7 +24,7 @@ public final class PerformanceAnalyzer {
 	private static final double DEFAULT_SETTLING_BAND = 0.02; // 2% of reference position
 
 	/** Band percentages surfaced to the UI so measured settling is visible at once. */
-	public static final int[] DISPLAY_BANDS_PERCENT = { 2, 5, 10, 50 };
+	public static final int[] DISPLAY_BANDS_PERCENT = { 2, 5, 10 };
 
 	public PerformanceMetrics analyze(Trajectory trajectory) {
 		return analyze(trajectory, DEFAULT_SETTLING_BAND);

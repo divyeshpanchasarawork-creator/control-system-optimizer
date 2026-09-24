@@ -3,6 +3,7 @@ import {
 	CartesianGrid,
 	Line,
 	LineChart,
+	ReferenceArea,
 	ReferenceLine,
 	ResponsiveContainer,
 	Scatter,
@@ -15,6 +16,8 @@ import {
 import type { MetricSurfaces, SimulationResponse } from '../../api/types'
 
 export const COLORS = ['#0a84ff', '#32d74b', '#c77800', '#d70015', '#7c3aed', '#0891b2', '#db2777', '#65a30d']
+
+const fmtTick = (v: unknown) => (typeof v === 'number' ? String(Number(v.toFixed(2))) : String(v))
 
 export function TrajectoryChart({ response, kind }: { response: SimulationResponse; kind: 'position' | 'velocity' | 'control' }) {
 	const data = response.trajectory || []
@@ -31,7 +34,7 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 		<ResponsiveContainer width="100%" height={200}>
 			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
 				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
 				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
 				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} />
 				{kind !== 'control' && data[0]?.reference?.[idx] !== undefined && (
@@ -47,6 +50,34 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 					/>
 				)}
 				<Line name={signalName} dataKey={signalKey} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+			</LineChart>
+		</ResponsiveContainer>
+	)
+}
+
+export function ErrorChart({ response, band }: { response: SimulationResponse; band: number }) {
+	const data = response.trajectory || []
+	const refMag = Math.abs(data[0]?.reference?.[0] ?? 0)
+	const bandAbs = (band / 100) * refMag
+	const showBand = bandAbs > 0 && refMag > 0
+	const color = '#d70015'
+
+	return (
+		<ResponsiveContainer width="100%" height={200}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
+				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: 'e (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
+				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} labelFormatter={(t) => `t = ${Number(t).toFixed(2)} s`} />
+				{showBand && (
+					<>
+						<ReferenceArea y1={-bandAbs} y2={bandAbs} fill="#0a84ff" fillOpacity={0.06} stroke="#0a84ff" strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
+						<ReferenceLine y={-bandAbs} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceLine y={bandAbs} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+					</>
+				)}
+				<ReferenceLine y={0} stroke="#c8c8d0" strokeWidth={1} />
+				<Line name="Error e(t)" dataKey={(p: { state: number[]; reference?: number[] }) => (p.reference?.[0] ?? 0) - (p.state?.[0] ?? 0)} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
 			</LineChart>
 		</ResponsiveContainer>
 	)

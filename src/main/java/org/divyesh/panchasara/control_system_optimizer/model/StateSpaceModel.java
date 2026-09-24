@@ -69,14 +69,29 @@ public record StateSpaceModel(RealMatrix a, RealMatrix b, RealMatrix c, RealMatr
 
 	/** Computes x' = A*x + B*u for the given state and control input. */
 	public double[] derivativeAt(double[] x, double[] u) {
-		if (x.length != stateDimension()) {
-			throw new IllegalArgumentException("State has wrong dimension: expected " + stateDimension() + " got " + x.length);
+		int n = stateDimension();
+		int m = inputDimension();
+		if (x.length != n) {
+			throw new IllegalArgumentException("State has wrong dimension: expected " + n + " got " + x.length);
 		}
-		if (u.length != inputDimension()) {
-			throw new IllegalArgumentException("Input has wrong dimension: expected " + inputDimension() + " got " + u.length);
+		if (u.length != m) {
+			throw new IllegalArgumentException("Input has wrong dimension: expected " + m + " got " + u.length);
 		}
-		RealMatrix xm = new Array2DRowRealMatrix(x);
-		RealMatrix um = new Array2DRowRealMatrix(u);
-		return a.multiply(xm).add(b.multiply(um)).getColumn(0);
+		double[] xdot = new double[n];
+		double[][] aData = a.getData();
+		double[][] bData = b.getData();
+		for (int i = 0; i < n; i++) {
+			double[] aRow = aData[i];
+			double sum = 0.0;
+			for (int j = 0; j < n; j++) {
+				sum += aRow[j] * x[j];
+			}
+			double[] bRow = bData[i];
+			for (int j = 0; j < m; j++) {
+				sum += bRow[j] * u[j];
+			}
+			xdot[i] = sum;
+		}
+		return xdot;
 	}
 }
