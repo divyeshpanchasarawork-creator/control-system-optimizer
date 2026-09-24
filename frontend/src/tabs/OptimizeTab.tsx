@@ -1,3 +1,4 @@
+import { Check, Rocket } from 'lucide-react'
 import { CheckField, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
@@ -14,7 +15,7 @@ const LEARNING = {
 }
 
 const PRESETS: { key: string; label: string; weights: { trackingErrorWeight: number; controlEffortWeight: number; settlingTimeWeight: number; overshootWeight: number } }[] = [
-	{ key: 'balanced', label: 'Balanced', weights: { trackingErrorWeight: 1, controlEffortWeight: 0.1, settlingTimeWeight: 0.5, overshootWeight: 0.5 } },
+	{ key: 'balanced', label: 'Balanced', weights: { trackingErrorWeight: 1, controlEffortWeight: 0.2, settlingTimeWeight: 0.5, overshootWeight: 0.5 } },
 	{ key: 'fast', label: 'Fast response', weights: { trackingErrorWeight: 5, controlEffortWeight: 0.05, settlingTimeWeight: 2, overshootWeight: 0.3 } },
 	{ key: 'effort', label: 'Low actuator effort', weights: { trackingErrorWeight: 1, controlEffortWeight: 1.5, settlingTimeWeight: 0.3, overshootWeight: 0.5 } },
 	{ key: 'overshoot', label: 'Minimal overshoot', weights: { trackingErrorWeight: 1.5, controlEffortWeight: 0.3, settlingTimeWeight: 0.4, overshootWeight: 2.5 } },
@@ -23,8 +24,15 @@ const PRESETS: { key: string; label: string; weights: { trackingErrorWeight: num
 ]
 
 function matchesPreset(w: { trackingErrorWeight: number; controlEffortWeight: number; settlingTimeWeight: number; overshootWeight: number }) {
+	const n = { trackingErrorWeight: w.trackingErrorWeight, controlEffortWeight: w.controlEffortWeight, settlingTimeWeight: w.settlingTimeWeight, overshootWeight: w.overshootWeight }
+	const custom = PRESETS.find((p) => p.key === 'custom')!
+	const matchesCustom = Math.abs(custom.weights.trackingErrorWeight - n.trackingErrorWeight) < 1e-6
+		&& Math.abs(custom.weights.controlEffortWeight - n.controlEffortWeight) < 1e-6
+		&& Math.abs(custom.weights.settlingTimeWeight - n.settlingTimeWeight) < 1e-6
+		&& Math.abs(custom.weights.overshootWeight - n.overshootWeight) < 1e-6
+	if (matchesCustom) return 'custom'
 	return PRESETS.find(
-		(p) => p.key !== 'custom' && Math.abs(p.weights.trackingErrorWeight - w.trackingErrorWeight) < 1e-6 && Math.abs(p.weights.controlEffortWeight - w.controlEffortWeight) < 1e-6 && Math.abs(p.weights.settlingTimeWeight - w.settlingTimeWeight) < 1e-6 && Math.abs(p.weights.overshootWeight - w.overshootWeight) < 1e-6,
+		(p) => p.key !== 'custom' && Math.abs(p.weights.trackingErrorWeight - n.trackingErrorWeight) < 1e-6 && Math.abs(p.weights.controlEffortWeight - n.controlEffortWeight) < 1e-6 && Math.abs(p.weights.settlingTimeWeight - n.settlingTimeWeight) < 1e-6 && Math.abs(p.weights.overshootWeight - n.overshootWeight) < 1e-6,
 	)?.key ?? 'custom'
 }
 
@@ -64,7 +72,7 @@ const boundaryHits: string[] = []
 
 	const handlePreset = (key: string) => {
 		const p = PRESETS.find((x) => x.key === key)
-		if (p && p.key !== 'custom') w.update({ ...p.weights })
+		if (p) w.update({ ...p.weights })
 	}
 
 	const constraintFields = [w.maxControl, w.maxOvershoot, w.maxSettlingTime]
@@ -188,12 +196,11 @@ const boundaryHits: string[] = []
 				</Panel>
 			</section>
 
-			{w.error && <div className="callout callout--error">{w.error}</div>}
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
 
 			<div className="btn-row btn-row--end">
 				<button className="btn primary btn--block" onClick={() => void w.runOptimization()} disabled={w.loading !== null}>
-					{w.loading ?? 'Run optimization'}
+					<Rocket size={14} strokeWidth={2} /> {w.loading ?? 'Run optimization'}
 				</button>
 			</div>
 
@@ -264,7 +271,7 @@ const boundaryHits: string[] = []
 
 						{w.optimizerResult.feasible && w.optimizerResult.bestGain.length >= 1 && (
 							<div style={{ marginTop: 12 }} className="btn-row">
-								<button className="btn" onClick={w.applyOptimizedGain}>Apply optimized gain</button>
+								<button className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
 							</div>
 						)}
 

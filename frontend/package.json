@@ -9,8 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "framer-motion": "^13.4.2",
+    "lucide-react": "^1.48.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.6.1",
     "recharts": "^3.0.0"
   },
   "devDependencies": {

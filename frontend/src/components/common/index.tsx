@@ -1,6 +1,76 @@
+import { AnimatePresence, motion } from 'framer-motion'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 const FALLBACK = 'Not available'
+
+const clamp = (v: number, min?: number, max?: number) => {
+	let r = v
+	if (min !== undefined && r < min) r = min
+	if (max !== undefined && r > max) r = max
+	return r
+}
+
+const clean = (n: number) => {
+	const v = Number(n.toFixed(10))
+	return Number.isFinite(v) ? String(v) : '0'
+}
+
+export function BufferedNumberInput({ value, min, max, step = 1, onChange, className, ariaLabel }: {
+	value: number
+	min?: number
+	max?: number
+	step?: number
+	onChange: (v: number) => void
+	className?: string
+	ariaLabel?: string
+}) {
+	const [draft, setDraft] = useState<string | null>(null)
+
+	const display = draft ?? clean(Number.isFinite(value) ? value : 0)
+
+	const handleChange = (raw: string) => {
+		setDraft(raw)
+		const parsed = parseFloat(raw)
+		if (Number.isFinite(parsed)) onChange(parsed)
+	}
+
+	const commit = () => {
+		setDraft(null)
+	}
+
+	const bump = (dir: 1 | -1) => {
+		const base = Number.isFinite(value) ? value : 0
+		const raw = clamp(parseFloat((base + dir * step).toFixed(10)), min, max)
+		onChange(raw)
+	}
+
+	return (
+		<span className="num-input">
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label="decrease" onClick={() => bump(-1)}>
+				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>
+			</button>
+			<input
+				className={className}
+				type="text"
+				inputMode="decimal"
+				value={display}
+				onChange={(e) => handleChange(e.target.value)}
+				onBlur={commit}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter') {
+						commit()
+						e.currentTarget.blur()
+					}
+				}}
+				aria-label={ariaLabel}
+			/>
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label="increase" onClick={() => bump(1)}>
+				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+			</button>
+		</span>
+	)
+}
 
 export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBACK): string {
 	if (n === null || n === undefined || Number.isNaN(n) || !Number.isFinite(n)) return fallback
@@ -40,14 +110,25 @@ export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 	tone?: 'good' | 'bad' | 'neutral'
 	hint?: string
 }) {
+	const [open, setOpen] = useState(false)
 	return (
-		<div className="metric-card">
+		<div className={`metric-card metric-card--${tone}`}>
 			<span className="metric-card__label">
 				{label}
-				{hint !== undefined && <Info text={hint} />}
+				{hint !== undefined && (
+					<button
+						type="button"
+						className="info"
+						aria-label={`About ${label}`}
+						onClick={() => setOpen((o) => !o)}
+					>
+						<span className="info__glyph" aria-hidden="true">i</span>
+					</button>
+				)}
 			</span>
 			<span className={`metric-card__value metric-card__value--${tone}`}>{value}</span>
 			{sub !== undefined && <span className="metric-card__sub">{sub}</span>}
+			{hint !== undefined && open && <span className="metric-card__pop" role="tooltip">{hint}</span>}
 		</div>
 	)
 }
@@ -70,14 +151,32 @@ export function Info({ text }: { text: string }) {
 }
 
 export function Learn({ title, children }: { title: string; children: ReactNode }) {
+	const [open, setOpen] = useState(false)
 	return (
-		<details className="learn">
-			<summary className="learn__summary">
+		<div className="learn">
+			<button type="button" className="learn__summary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
 				<span className="learn__tag">Learn</span>
-				{title}
-			</summary>
-			<div className="learn__body">{children}</div>
-		</details>
+				<span className="learn__title">{title}</span>
+				<span className={`learn__chevron ${open ? 'learn__chevron--open' : ''}`} aria-hidden="true">
+					<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+						<path d="M6 9l6 6 6-6" />
+					</svg>
+				</span>
+			</button>
+			<AnimatePresence initial={false}>
+				{open && (
+					<motion.div
+						className="learn__body"
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: 'auto', opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={{ duration: 0.22, ease: 'easeOut' }}
+					>
+						{children}
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</div>
 	)
 }
 
@@ -98,14 +197,7 @@ export function NumberField({ label, value, onChange, min, max, step, unit, hint
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<input
-					type="number"
-					value={Number.isFinite(value) ? value : ''}
-					min={min}
-					max={max}
-					step={step}
-					onChange={(e) => onChange(parseFloat(e.target.value))}
-				/>
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={step} onChange={onChange} ariaLabel={label} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>
@@ -128,14 +220,7 @@ export function GainField({ name, value, onChange, min, max, unit, hint }: {
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<input
-					type="number"
-					value={Number.isFinite(value) ? value : ''}
-					min={min}
-					max={max}
-					step={1}
-					onChange={(e) => onChange(parseFloat(e.target.value))}
-				/>
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={1} onChange={onChange} ariaLabel={name} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>
@@ -217,14 +302,13 @@ export function ObjectiveBars({ weights, onChange }: {
 					<div className="weight-bar__track">
 						<div className="weight-bar__fill" style={{ width: `${(w.value / max) * 100}%` }} />
 					</div>
-					<input
-						className="mono"
-						style={{ width: 70, textAlign: 'right', border: 'none', background: 'none', color: 'var(--text)', fontWeight: 600 }}
-						type="number"
+					<BufferedNumberInput
+						className="mono num-input__field"
+						value={Number.isFinite(w.value) ? w.value : 0}
 						min={0}
 						step={0.1}
-						value={Number.isFinite(w.value) ? w.value : 0}
-						onChange={(e) => onChange(w.symbol, parseFloat(e.target.value))}
+						onChange={(v) => onChange(w.symbol, v)}
+						ariaLabel={`${w.label} weight`}
 					/>
 				</div>
 			))}

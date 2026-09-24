@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Play } from 'lucide-react'
 
 import { CheckField, GainField, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
 import { fmt } from '../components/common'
@@ -130,7 +131,7 @@ export function SimulateTab() {
 							value={w.initialState[1]} step={0.1} onChange={(v) => w.update({ initialState: [w.initialState[0], v] })} />
 					</div>
 					<div style={{ marginTop: 14 }} className="row">
-						<button className="btn primary" onClick={() => void w.runSimulation()}>Run simulation</button>
+						<button className="btn primary" onClick={() => void w.runSimulation()}><Play size={14} strokeWidth={2.2} /> Run simulation</button>
 						<Learn title="Read the plot">
 							<p>{LEARNING.sim}</p>
 						</Learn>
@@ -272,7 +273,6 @@ export function SimulateTab() {
 				</div>
 			</Panel>
 
-			{w.error && <div className="callout callout--error">{w.error}</div>}
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
 			{w.refreshing && !w.loading && <div className="callout callout--info">Refreshing results after your edits…</div>}
 		</div>

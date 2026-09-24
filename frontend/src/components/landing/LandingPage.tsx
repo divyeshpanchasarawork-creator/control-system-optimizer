@@ -1,4 +1,6 @@
 import { Fragment, useMemo } from 'react'
+import { motion } from 'framer-motion'
+import { ArrowRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
 import { LogoMark } from '../Landing'
 import type { LabParams } from './LandingSim'
 import { presetDamping, simulateClosedLoop, zetaOmega } from './LandingSim'
@@ -56,27 +58,44 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<a href="#simulate">Simulate</a>
 					<a href="#tune">Tune</a>
 					<a href="#search">Search</a>
-					<button className="landing__nav-cta" onClick={onEnter}>Open Lab →</button>
+					<button className="landing__nav-cta" onClick={onEnter}>Open Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
 				</nav>
 			</header>
 
 			<section className="landing-hero" id="top">
 				<div className="landing-hero__inner">
-					<div className="landing-hero__copy">
-						<p className="landing-hero__eyebrow">LINEAR CONTROL LAB</p>
-						<h1 className="landing-hero__title">
+					<motion.div
+						className="landing-hero__copy"
+						initial="hidden"
+						animate="show"
+						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
+					>
+						<motion.p
+							className="landing-hero__eyebrow"
+							variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
+						>LINEAR CONTROL LAB</motion.p>
+						<motion.h1
+							className="landing-hero__title"
+							variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } }}
+						>
 							Design control systems. <br />
 							See the dynamics <em>behave</em>.
-						</h1>
-						<p className="landing-hero__subtitle">
+						</motion.h1>
+						<motion.p
+							className="landing-hero__subtitle"
+							variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } }}
+						>
 							A thinking spring-mass-damper. Tune the feedback gains, watch the closed-loop poles move, and
 							search for the design that clears your specs.
-						</p>
-						<div className="landing-hero__cta-row">
-							<button className="btn btn--primary" onClick={onEnter}>Open the Lab</button>
-							<a className="btn btn--ghost" href="#tune">Explore the System</a>
-						</div>
-					</div>
+						</motion.p>
+						<motion.div
+							className="landing-hero__cta-row"
+							variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
+						>
+							<button className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
+							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the System</a>
+						</motion.div>
+					</motion.div>
 					<div className="landing-hero__figure">
 						<MassSpringDamperSim {...HERO_BASE} />
 					</div>
@@ -187,7 +206,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 			<section className="landing-cta">
 				<h2 className="landing-cta__title">Start with intuition. Dive into the math when you are ready.</h2>
 				<p className="landing-cta__sub">Build the model, place the poles, and search the space. All in the browser.</p>
-				<button className="btn btn--primary btn--lg" onClick={onEnter}>Open the Lab</button>
+				<button className="btn btn--primary btn--lg" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
 			</section>
 
 			<footer className="landing__footer" id="about">

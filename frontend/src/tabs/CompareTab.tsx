@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { GitCompareArrows } from 'lucide-react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 import { Badge, Callout, Learn, MetricCard, ObjectiveBreakdownTable, Panel } from '../components/common'
@@ -118,7 +119,7 @@ export function CompareTab() {
 				<div className="row row--between">
 					<span className="faint">Manual K = [{fmt(w.manualGain[0])}, {fmt(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmt(w.optimizedGain[0])}, ${fmt(w.optimizedGain[1])}]` : ''}</span>
 					<button className="btn primary" onClick={() => void runBoth()} disabled={!w.optimizedGain}>
-						{!w.optimizedGain ? 'Run an optimization first' : ran ? 'Re-run comparison' : 'Compare gains'}
+						<GitCompareArrows size={14} strokeWidth={2} />{!w.optimizedGain ? 'Run an optimization first' : ran ? 'Re-run comparison' : 'Compare gains'}
 					</button>
 				</div>
 				{!w.optimizedGain && (
@@ -211,7 +212,7 @@ export function CompareTab() {
 				</div>
 			)}
 
-			{w.error && <div className="callout callout--error">{w.error}</div>}
+			{w.loading && <div className="callout callout--info">{w.loading}</div>}
 		</div>
 	)
 }
