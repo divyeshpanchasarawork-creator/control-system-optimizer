@@ -74,8 +74,11 @@ const inflight = new Map<string, AbortController>()
 
 export const api = {
 	systems: () => request<SystemDescriptor[]>('GET', '/api/systems', undefined, REQUEST_TIMEOUT_MS.stability),
-	simulate: (body: SimulationRequest) =>
-		request<SimulationResponse>('POST', '/api/simulations', body, REQUEST_TIMEOUT_MS.simulate, '/api/simulations'),
+	// `key` scopes request supersession: two callers that need to run
+	// concurrently must pass different keys, or the second aborts the first.
+	// Sharing one key keeps the latest-wins debounce for rapid edits.
+	simulate: (body: SimulationRequest, key = 'simulate:default') =>
+		request<SimulationResponse>('POST', '/api/simulations', body, REQUEST_TIMEOUT_MS.simulate, key),
 	stability: (body: StabilityRequest) =>
 		request<StabilityResponse>('POST', '/api/analysis/stability', body, REQUEST_TIMEOUT_MS.stability, '/api/analysis/stability'),
 	optimize: (body: OptimizationRequest) =>

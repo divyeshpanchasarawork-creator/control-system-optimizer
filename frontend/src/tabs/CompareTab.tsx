@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitCompareArrows } from 'lucide-react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
-import { Badge, Callout, Learn, MetricCard, ObjectiveBreakdownTable, Panel } from '../components/common'
+import { Badge, BusyNote, Callout, Learn, MetricCard, ObjectiveBreakdownTable, Panel } from '../components/common'
 import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
@@ -81,24 +81,58 @@ export function CompareTab() {
 	const [manualSim, setManualSim] = useState<SimulationResponse | null>(null)
 	const [optSim, setOptSim] = useState<SimulationResponse | null>(null)
 	const [ran, setRan] = useState(false)
+	const [pending, setPending] = useState(false)
+
+	const ready = w.optimizedGain !== null
+	const inputKey = JSON.stringify({
+		mass: w.mass,
+		damping: w.damping,
+		springConstant: w.springConstant,
+		tracking: w.tracking,
+		feedforward: w.feedforward,
+		manualGain: w.manualGain.join(','),
+		optimizedGain: w.optimizedGain ? w.optimizedGain.join(',') : null,
+		initialState: w.initialState.join(','),
+		reference: w.reference.join(','),
+		endTime: w.endTime,
+		timeStep: w.timeStep,
+		settlingBand: w.settlingBand,
+		saturation: w.saturation,
+	})
+	const ranKeyRef = useRef<string | null>(null)
 
 	const manualMetrics = manualSim?.metrics ?? null
 	const optMetrics = optSim?.metrics ?? opt?.metrics ?? null
 
-	const runBoth = async () => {
+	const runBoth = useCallback(async () => {
+		setPending(true)
 		w.update({ error: null })
 		try {
 			const [m, o] = await Promise.all([
-				w.simulateGain(w.manualGain),
-				w.optimizedGain ? w.simulateGain(w.optimizedGain) : Promise.resolve(null),
+				w.simulateGain(w.manualGain, 'compare:manual'),
+				w.optimizedGain ? w.simulateGain(w.optimizedGain, 'compare:optimized') : Promise.resolve(null),
 			])
 			setManualSim(m)
 			setOptSim(o)
 			setRan(true)
+			ranKeyRef.current = inputKey
 		} catch (e) {
+			if (e instanceof Error && e.name === 'AbortError') return
 			w.update({ error: e instanceof Error ? e.message : String(e) })
+		} finally {
+			setPending(false)
 		}
-	}
+	}, [inputKey, w.manualGain, w.optimizedGain, w.simulateGain, w.update])
+
+	const runRef = useRef(runBoth)
+	runRef.current = runBoth
+
+	useEffect(() => {
+		if (!ready) return
+		if (ranKeyRef.current === inputKey) return
+		const id = setTimeout(() => { void runRef.current() }, 400)
+		return () => clearTimeout(id)
+	}, [ready, inputKey])
 
 	const breakdown = opt?.objectiveBreakdown
 
@@ -118,12 +152,24 @@ export function CompareTab() {
 				</div>
 				<div className="row row--between">
 					<span className="faint">Manual K = [{fmt(w.manualGain[0])}, {fmt(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmt(w.optimizedGain[0])}, ${fmt(w.optimizedGain[1])}]` : ''}</span>
-					<button className="btn primary" onClick={() => void runBoth()} disabled={!w.optimizedGain}>
-						<GitCompareArrows size={14} strokeWidth={2} />{!w.optimizedGain ? 'Run an optimization first' : ran ? 'Re-run comparison' : 'Compare gains'}
+					<button className="btn primary" onClick={() => void runBoth()} disabled={!ready || pending}>
+						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : ran ? 'Re-run comparison' : 'Compare gains'}
 					</button>
 				</div>
-				{!w.optimizedGain && (
-					<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
+				{pending && (
+					<div className="row" style={{ marginTop: 12 }}>
+						<BusyNote large>Running both controllers…</BusyNote>
+					</div>
+				)}
+				{!ready && (
+					<div style={{ marginTop: 12 }}>
+						<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
+					</div>
+				)}
+				{ready && !pending && ran && (
+					<div className="row" style={{ marginTop: 12 }}>
+						<span className="faint">Both runs match the current model. Edit any input and they refresh themselves.</span>
+					</div>
 				)}
 			</Panel>
 
@@ -135,7 +181,7 @@ export function CompareTab() {
 
 			{(manualSim || optSim) && (
 				<section className="table-wrap">
-					<Panel title="Per-metric comparison">
+					<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
 						<table className="data">
 							<thead>
 								<tr>
@@ -156,13 +202,13 @@ export function CompareTab() {
 			)}
 
 			{!manualSim && !optSim && (
-				<div className="empty">Run the comparison first to line up both controllers on the same table.</div>
+				<div className="empty">The comparison starts on its own as soon as an optimization produces a gain.</div>
 			)}
 
-			<Panel title="Trajectory overlay">
+			<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
 				<div className="charts-grid">
 					<ChartGrid manual={manualSim} optimized={optSim} />
-					{(manualSim || optSim) ? null : <div className="empty">Run the comparison to overlay both trajectories.</div>}
+					{(manualSim || optSim) ? null : <div className="empty">Both trajectories appear here once the comparison runs.</div>}
 				</div>
 			</Panel>
 
@@ -172,7 +218,7 @@ export function CompareTab() {
 						<>
 							<p className="faint" style={{ marginTop: 0 }}>
 								The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
-								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> Run the comparison above to see the deltas.</>}
+								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> The measured deltas appear as soon as the comparison finishes.</>}
 							</p>
 							{manualMetrics && optMetrics && tradeoffSentence(manualMetrics, optMetrics) && (
 								<p className="faint" style={{ marginTop: -4 }}>{tradeoffSentence(manualMetrics, optMetrics)}</p>
@@ -212,7 +258,12 @@ export function CompareTab() {
 				</div>
 			)}
 
-			{w.loading && <div className="callout callout--info">{w.loading}</div>}
+			{w.loading && (
+				<div className="callout callout--info">
+					<span className="spinner" />
+					{w.loading}
+				</div>
+			)}
 		</div>
 	)
 }

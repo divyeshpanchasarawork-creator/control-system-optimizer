@@ -141,6 +141,15 @@ export function Callout({ tone, children }: { tone: 'info' | 'warn' | 'error'; c
 	return <div className={`callout callout--${tone}`}>{children}</div>
 }
 
+export function BusyNote({ children, large = false }: { children: ReactNode; large?: boolean }) {
+	return (
+		<span className="loading-note">
+			<span className={large ? 'spinner spinner--lg' : 'spinner'} />
+			<span>{children}</span>
+		</span>
+	)
+}
+
 export function Info({ text }: { text: string }) {
 	return (
 		<span className="info" tabIndex={0} title={text}>

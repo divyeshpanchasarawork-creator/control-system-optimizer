@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Play } from 'lucide-react'
 
-import { Badge, CheckField, GainField, Info, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
+import { Badge, BusyNote, CheckField, GainField, Info, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
 import { fmt } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -68,6 +67,7 @@ export function SimulateTab() {
 	const poleInfo = w.stability ? poleSummary(w.stability.eigenvalues ?? []) : null
 	const settlingBand = w.settlingBand
 	const [positionFocus, setPositionFocus] = useState(false)
+	const busy = w.loading !== null || w.refreshing
 
 	const r1 = w.reference[0]
 	const kDenom = w.springConstant + gain[0]
@@ -183,8 +183,12 @@ export function SimulateTab() {
 						<NumberField label="Initial velocity" unit="m/s" hint="Starting velocity ẋ(0)."
 							value={w.initialState[1]} step={0.1} onChange={(v) => w.update({ initialState: [w.initialState[0], v] })} />
 					</div>
-					<div style={{ marginTop: 14 }} className="row">
-						<button className="btn primary" onClick={() => void w.runSimulation()}><Play size={14} strokeWidth={2.2} /> Run simulation</button>
+					<div style={{ marginTop: 14 }} className="row row--between">
+						{busy ? (
+							<BusyNote>Recomputing simulation…</BusyNote>
+						) : (
+							<span className="faint">Results update on their own as you edit any input above.</span>
+						)}
 						<Learn title="Read the plot">
 							<p>{LEARNING.sim}</p>
 						</Learn>
@@ -193,12 +197,12 @@ export function SimulateTab() {
 			</section>
 
 			<div className="charts-grid charts-grid--2a">
-				<Panel title="Position x₁(t)" right={w.simulation ? (
+				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (
 					<button type="button" className="btn btn--sm" onClick={() => setPositionFocus((f) => !f)}>Focus on reference</button>
 				) : undefined}>
 					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <div className="empty">No simulation yet</div>}
 				</Panel>
-				<Panel title="Closed-Loop Poles">
+				<Panel title="Closed-Loop Poles" className={busy ? 'chart-busy' : ''}>
 					{w.stability ? (
 						<>
 							<PoleZeroChart eigenvalues={eigenvalues ?? []} />
@@ -221,16 +225,16 @@ export function SimulateTab() {
 			</div>
 
 			<div className="charts-grid">
-				<Panel title="Error e(t)" right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
+				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
 					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <div className="empty">No simulation yet</div>}
 				</Panel>
 			</div>
 
 			<div className="charts-grid charts-grid--2a">
-				<Panel title="Velocity x₂(t)">
+				<Panel title="Velocity x₂(t)" className={busy ? 'chart-busy' : ''}>
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <div className="empty">No simulation yet</div>}
 				</Panel>
-				<Panel title="Control u(t)">
+				<Panel title="Control u(t)" className={busy ? 'chart-busy' : ''}>
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="control" /> : <div className="empty">No simulation yet</div>}
 				</Panel>
 			</div>
@@ -245,7 +249,7 @@ export function SimulateTab() {
 				</Panel>
 			)}
 
-			<Panel title="Metrics" right={<span className="mono faint">K = [{fmt(gain[0])}, {fmt(gain[1])}]</span>}>
+			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">K = [{fmt(gain[0])}, {fmt(gain[1])}]</span>}>
 				{metrics ? (
 					<>
 						<div className="metric-group">
@@ -334,8 +338,12 @@ export function SimulateTab() {
 				</div>
 			</Panel>
 
-			{w.loading && <div className="callout callout--info">{w.loading}</div>}
-			{w.refreshing && !w.loading && <div className="callout callout--info">Refreshing results after your edits…</div>}
+			{busy && (
+				<div className="callout callout--info">
+					<span className="spinner" />
+					{w.loading ?? 'Refreshing results after your edits…'}
+				</div>
+			)}
 		</div>
 	)
 }

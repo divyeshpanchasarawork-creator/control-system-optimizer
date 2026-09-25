@@ -67,7 +67,7 @@ export interface WorkspaceState {
 	update: (patch: Partial<WorkspaceState>) => void
 	loadCatalog: () => Promise<void>
 	runSimulation: (gain?: [number, number], options?: { silent?: boolean }) => Promise<void>
-	simulateGain: (gain: [number, number]) => Promise<SimulationResponse>
+	simulateGain: (gain: [number, number], key?: string) => Promise<SimulationResponse>
 	runStability: (options?: { silent?: boolean }) => Promise<void>
 	runOptimization: () => Promise<void>
 	applyOptimizedGain: () => void
@@ -183,7 +183,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		}
 	}, [mass, damping, springConstant, tracking, feedforward, manualGain, optimizedGain, useOptimized, initialState, reference, endTime, timeStep, settlingBand, saturation])
 
-	const simulateGain = useCallback(async (gain: [number, number]): Promise<SimulationResponse> => {
+	const simulateGain = useCallback(async (gain: [number, number], key?: string): Promise<SimulationResponse> => {
 		const system = {
 			type: 'SPRING_DAMPER' as const,
 			parameters: { mass, damping, springConstant },
@@ -193,7 +193,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 			system,
 			controller,
 			simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
-		})
+		}, key)
 	}, [mass, damping, springConstant, tracking, feedforward, initialState, reference, endTime, timeStep, settlingBand, saturation])
 
 	const runStability = useCallback(async (options?: { silent?: boolean }) => {
