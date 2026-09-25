@@ -16,4 +16,16 @@ public interface ObjectiveFunction {
 	 *         implementations should map undefined values to an explicit penalty.
 	 */
 	double evaluate(Trajectory trajectory, PerformanceMetrics metrics);
+
+	/**
+	 * Evaluates the cost with an optional analytic steady-state tracking error
+	 * so objectives that include a steady-state term can normalize against it.
+	 * Defaults to the plain evaluation when no steady-state value is available.
+	 *
+	 * @param steadyStateError the analytic steady-state tracking error magnitude,
+	 *                         or {@code null} when undefined / not applicable
+	 */
+	default double evaluate(Trajectory trajectory, PerformanceMetrics metrics, Double steadyStateError) {
+		return evaluate(trajectory, metrics);
+	}
 }

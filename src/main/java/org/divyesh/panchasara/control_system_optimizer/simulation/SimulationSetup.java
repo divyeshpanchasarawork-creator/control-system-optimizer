@@ -22,7 +22,13 @@ public record SimulationSetup(
 		double[] reference,
 		double startTime,
 		double endTime,
-		double timeStep) {
+		double timeStep,
+		double saturation) {
+
+	public SimulationSetup(DynamicSystem system, Controller controller, double[] initialState, double[] reference,
+			double startTime, double endTime, double timeStep) {
+		this(system, controller, initialState, reference, startTime, endTime, timeStep, 0.0);
+	}
 
 	public SimulationSetup {
 		if (system == null) {
@@ -40,5 +46,6 @@ public record SimulationSetup(
 		if (!(endTime > startTime) || Double.isNaN(startTime) || Double.isNaN(endTime)) {
 			throw new IllegalArgumentException("Simulation interval must be finite with endTime > startTime");
 		}
+		saturation = Double.isFinite(saturation) && saturation > 0.0 ? saturation : 0.0;
 	}
 }

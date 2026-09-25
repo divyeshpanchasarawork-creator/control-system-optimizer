@@ -4,6 +4,7 @@ import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceAnaly
 import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceMetrics;
 import org.divyesh.panchasara.control_system_optimizer.analysis.StabilityAnalyzer;
 import org.divyesh.panchasara.control_system_optimizer.analysis.StabilityResult;
+import org.divyesh.panchasara.control_system_optimizer.analysis.SteadyStateResolver;
 import org.divyesh.panchasara.control_system_optimizer.control.ClosedLoopSystem;
 import org.divyesh.panchasara.control_system_optimizer.control.StateFeedbackController;
 import org.divyesh.panchasara.control_system_optimizer.model.DynamicSystem;
@@ -41,10 +42,13 @@ public final class ControlProblemFactory {
 	 * A candidate gain vector K maps to u = -K(x - r) (or u = -Kx when tracking
 	 * is false); candidates that destabilize the closed loop, produce invalid
 	 * simulations or violate the given hard constraints receive +INFINITY.
+	 *
+	 * @param feedforward when true the candidate controller adds reference
+	 *                    feedforward (+k*r1) that cancels the static load
 	 */
-	public OptimizationProblem createProblem(DynamicSystem system, boolean tracking, SimulationSettings simulation,
-			ObjectiveFunction objective, Constraints constraints, double[] lowerBounds, double[] upperBounds,
-			String[] parameterNames) {
+	public OptimizationProblem createProblem(DynamicSystem system, boolean tracking, boolean feedforward,
+			SimulationSettings simulation, ObjectiveFunction objective, Constraints constraints, double[] lowerBounds,
+			double[] upperBounds, String[] parameterNames) {
 		return new OptimizationProblem() {
 			@Override
 			public String[] parameterNames() {
@@ -63,16 +67,18 @@ public final class ControlProblemFactory {
 
 			@Override
 			public double evaluate(double[] candidate) {
-				return evaluateCandidate(system, tracking, simulation, objective, constraints, candidate).cost();
+				return evaluateCandidate(system, tracking, feedforward, simulation, objective, constraints, candidate)
+						.cost();
 			}
 
 			@Override
 			public EvaluationDetail evaluateDetail(double[] candidate) {
 				DetailedEvaluation evaluation =
-						evaluateCandidate(system, tracking, simulation, objective, constraints, candidate);
+						evaluateCandidate(system, tracking, feedforward, simulation, objective, constraints, candidate);
 				PerformanceMetrics metrics = evaluation.metrics();
 				return new EvaluationDetail(evaluation.cost(),
-						applicationScalar(metrics.iae()), applicationScalar(metrics.controlEffort()));
+						metrics == null ? null : applicationScalar(metrics.iae()),
+						metrics == null ? null : applicationScalar(metrics.controlEffort()));
 			}
 		};
 	}
@@ -88,35 +94,43 @@ public final class ControlProblemFactory {
 	 * @param constraints optional hard limits; a violating candidate is treated
 	 *                    as infeasible while its metrics are kept for reporting
 	 */
-	public DetailedEvaluation evaluateCandidate(DynamicSystem system, boolean tracking, SimulationSettings simulation,
-			ObjectiveFunction objective, Constraints constraints, double[] gains) {
+	public DetailedEvaluation evaluateCandidate(DynamicSystem system, boolean tracking, boolean feedforward,
+			SimulationSettings simulation, ObjectiveFunction objective, Constraints constraints, double[] gains) {
 		if (gains == null || gains.length != system.dimension()) {
 			return DetailedEvaluation.infeasible(constraints);
 		}
 		try {
-			StateFeedbackController controller = StateFeedbackController.of(gains, tracking);
+			double springConstant = system.parameters().getOrDefault("springConstant", Double.NaN);
+			double feedforwardForce = feedforward && Double.isFinite(springConstant) ? springConstant : 0.0;
+			StateFeedbackController controller = StateFeedbackController.of(gains, tracking, feedforwardForce);
 			ClosedLoopSystem closedLoop = ClosedLoopSystem.of(system, controller);
 			StabilityResult stability = stabilityAnalyzer.analyze(closedLoop.acl());
 			if (!stability.stable()) {
-				return new DetailedEvaluation(controller, stability, null, null, Double.POSITIVE_INFINITY, constraints);
+				return new DetailedEvaluation(controller, stability, null, null, Double.POSITIVE_INFINITY, constraints,
+						null);
 			}
 			SimulationSetup setup = new SimulationSetup(system, controller, simulation.initialState(),
-					simulation.reference(), simulation.startTime(), simulation.endTime(), simulation.timeStep());
+					simulation.reference(), simulation.startTime(), simulation.endTime(), simulation.timeStep(),
+					simulation.saturation());
 			Trajectory trajectory = simulator.simulate(setup);
 			PerformanceMetrics metrics =
 					performanceAnalyzer.analyze(trajectory, simulation.settlingBandFraction());
-			double cost = objective.evaluate(trajectory, metrics);
+			Double steadyStateError = SteadyStateResolver
+					.resolve(gains, springConstant, simulation.reference()[0], tracking, feedforward).eSS();
+			double cost = objective.evaluate(trajectory, metrics, steadyStateError);
 			if (Double.isNaN(cost) || cost == Double.NEGATIVE_INFINITY) {
 				return new DetailedEvaluation(controller, stability, metrics, trajectory, Double.POSITIVE_INFINITY,
-						constraints);
+						constraints, steadyStateError);
 			}
 			Constraints.ConstraintReport report = constraints == null ? null
-					: constraints.check(metrics.maxControl(), metrics.overshoot(), metrics.settlingTime());
+					: constraints.check(metrics.maxControl(), metrics.overshoot(), metrics.settlingTime(),
+							metrics.controlEffort(), steadyStateError);
 			if (report != null && !allSatisfied(report)) {
 				return new DetailedEvaluation(controller, stability, metrics, trajectory, Double.POSITIVE_INFINITY,
-						constraints);
+						constraints, steadyStateError);
 			}
-			return new DetailedEvaluation(controller, stability, metrics, trajectory, cost, constraints);
+			return new DetailedEvaluation(controller, stability, metrics, trajectory, cost, constraints,
+					steadyStateError);
 		} catch (RuntimeException e) {
 			return DetailedEvaluation.infeasible(constraints);
 		}
@@ -125,7 +139,9 @@ public final class ControlProblemFactory {
 	private boolean allSatisfied(Constraints.ConstraintReport report) {
 		return (report.maxControl() == null || report.maxControl().satisfied())
 				&& (report.maxOvershoot() == null || report.maxOvershoot().satisfied())
-				&& (report.maxSettlingTime() == null || report.maxSettlingTime().satisfied());
+				&& (report.maxSettlingTime() == null || report.maxSettlingTime().satisfied())
+				&& (report.maxSteadyStateError() == null || report.maxSteadyStateError().satisfied())
+				&& (report.maxControlEnergy() == null || report.maxControlEnergy().satisfied());
 	}
 
 	/**
@@ -138,19 +154,22 @@ public final class ControlProblemFactory {
 		final Trajectory trajectory;
 		final double cost;
 		final Constraints constraints;
+		final Double steadyStateError;
 
 		private DetailedEvaluation(StateFeedbackController controller, StabilityResult stability,
-				PerformanceMetrics metrics, Trajectory trajectory, double cost, Constraints constraints) {
+				PerformanceMetrics metrics, Trajectory trajectory, double cost, Constraints constraints,
+				Double steadyStateError) {
 			this.controller = controller;
 			this.stability = stability;
 			this.metrics = metrics;
 			this.trajectory = trajectory;
 			this.cost = cost;
 			this.constraints = constraints;
+			this.steadyStateError = steadyStateError;
 		}
 
 		static DetailedEvaluation infeasible(Constraints constraints) {
-			return new DetailedEvaluation(null, null, null, null, Double.POSITIVE_INFINITY, constraints);
+			return new DetailedEvaluation(null, null, null, null, Double.POSITIVE_INFINITY, constraints, null);
 		}
 
 		public boolean feasible() {
@@ -177,12 +196,18 @@ public final class ControlProblemFactory {
 			return cost;
 		}
 
+		/** Analytic steady-state tracking error magnitude, or null when not applicable. */
+		public Double steadyStateError() {
+			return steadyStateError;
+		}
+
 		/** The constraint report for this candidate, or null when not enforced. */
 		public Constraints.ConstraintReport constraintReport() {
 			return constraints == null ? null
 					: constraints.check(metrics == null ? Double.NaN : metrics.maxControl(),
 							metrics == null ? Double.NaN : metrics.overshoot(),
-							metrics == null ? Double.NaN : metrics.settlingTime());
+							metrics == null ? null : metrics.settlingTime(),
+							metrics == null ? Double.NaN : metrics.controlEffort(), steadyStateError);
 		}
 	}
 }

@@ -21,9 +21,18 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
 
-  --radius: 8px;
-  --radius-sm: 8px;
-  --radius-lg: 12px;
+  /* Golden ratio scale: every radius/space/size in the system is a power of phi off a 14px body cap */
+  --phi: 1.618;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --radius-lg: 34px;
+
+  /* phi-spaced step ladder (14 -> 22 -> 36 -> 58 -> 94) */
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 16px;
+  --space-4: 26px;
+  --space-5: 42px;
 
   --mono: "SF Mono", ui-monospace, "Roboto Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* Apple-style system stack, SF Pro first */
@@ -43,9 +52,9 @@
   --tab-amber: #c77800;
   --tab-emerald: #1a8c4d;
 
-  /* Type scale (Apple-like: heavier weights, tight tracking on display) */
-  --fs-display: clamp(40px, 6vw, 68px);
-  --fs-hero: clamp(26px, 3.5vw, 40px);
+  /* Type scale: each step is a phi multiple of the body cap (14 -> 22 -> 36) */
+  --fs-display: clamp(36px, 5.5vw, 58px);
+  --fs-hero: clamp(22px, 3.2vw, 36px);
   --fs-title: 22px;
   --fs-heading: 16px;
   --fs-body: 14px;

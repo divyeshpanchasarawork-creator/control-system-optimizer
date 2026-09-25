@@ -55,6 +55,62 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 	)
 }
 
+export function PositionChart({ response, band, xSS, focused }: {
+	response: SimulationResponse
+	band: number
+	xSS: number | null
+	focused: boolean
+}) {
+	const data = response.trajectory || []
+	const color = '#0a84ff'
+	const r1 = data[0]?.reference?.[0]
+	const refMag = Math.abs(r1 ?? 0)
+	const bandAbs = (band / 100) * refMag
+	const showBand = band > 0 && refMag > 0
+	const bandLow = r1 === undefined ? 0 : r1 - bandAbs
+	const bandHigh = r1 === undefined ? 0 : r1 + bandAbs
+	const x0 = data[0]?.state?.[0]
+	const margin = r1 === undefined ? 0 : 0.05 * Math.abs(r1)
+	const envelope = [r1, x0, xSS].filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+	const yDomain: [number, number] | undefined = focused && envelope.length > 0
+		? [Math.min(...envelope) - bandAbs - margin, Math.max(...envelope) + bandAbs + margin]
+		: undefined
+
+	return (
+		<ResponsiveContainer width="100%" height={200}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
+				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} domain={yDomain} label={{ value: 'Position (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
+				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} />
+				{data[0]?.reference?.[0] !== undefined && (
+					<Line
+						name="Reference"
+						dataKey={(p: { time: number; reference?: number[] }) => p.reference?.[0]}
+						stroke={color}
+						strokeDasharray="6 4"
+						strokeWidth={1.4}
+						dot={false}
+						opacity={0.85}
+						isAnimationActive={false}
+					/>
+				)}
+				{xSS !== null && xSS !== r1 && (
+					<ReferenceLine y={xSS} stroke="#7c3aed" strokeDasharray="2 6" ifOverflow="extendDomain" />
+				)}
+				{showBand && (
+					<>
+						<ReferenceArea y1={bandLow} y2={bandHigh} fill="#0a84ff" fillOpacity={0.06} stroke="#0a84ff" strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
+						<ReferenceLine y={bandLow} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceLine y={bandHigh} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+					</>
+				)}
+				<Line name="Position" dataKey={(p: { state: number[] }) => p.state?.[0] ?? 0} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+			</LineChart>
+		</ResponsiveContainer>
+	)
+}
+
 export function ErrorChart({ response, band }: { response: SimulationResponse; band: number }) {
 	const data = response.trajectory || []
 	const refMag = Math.abs(data[0]?.reference?.[0] ?? 0)
@@ -102,16 +158,17 @@ export function PoleZeroChart({ eigenvalues }: { eigenvalues: { real: number; im
 	)
 }
 
-export function ConvergenceChart({ points, optimizerType }: { points: { generation: number; bestCost: number }[]; optimizerType?: string }) {
-	if (points.length === 0) return <div className="empty">No convergence data</div>
-	const gMax = Math.max(...points.map((p) => p.generation))
-	const finalJ = points[points.length - 1]?.bestCost
+export function ConvergenceChart({ points, optimizerType }: { points: { generation: number; bestCost: number | null }[]; optimizerType?: string }) {
+	const plot = points.filter((p): p is { generation: number; bestCost: number } => p.bestCost !== null)
+	if (plot.length === 0) return <div className="empty">No convergence data</div>
+	const gMax = Math.max(...plot.map((p) => p.generation))
+	const finalJ = plot[plot.length - 1]?.bestCost
 	const xLabel = optimizerType === 'GRID_SEARCH' ? 'Evaluations' : 'Generations'
 
 	const annotated = finalJ !== undefined
 	return (
 		<ResponsiveContainer width="100%" height={220}>
-			<LineChart data={points} margin={{ top: 24, right: 16, bottom: 0, left: 0 }}>
+			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }}>
 				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
 				<XAxis dataKey="generation" type="number" domain={[0, gMax]} tick={{ fontSize: 11 }} stroke="#a3a3ad" label={{ value: xLabel, position: 'insideBottomRight', fontSize: 11, fill: '#a3a3ad', dy: 6 }} />
 				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={56} label={{ value: 'Best objective J', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 10 }} />

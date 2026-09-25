@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Play } from 'lucide-react'
 
-import { CheckField, GainField, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
+import { Badge, CheckField, GainField, Info, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
 import { fmt } from '../components/common'
-import { ErrorChart, PoleZeroChart, TrajectoryChart } from '../components/charts'
+import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 import { poleSummary } from '../lib/poles'
 import type { SimulationResponse } from '../api/types'
@@ -15,11 +15,11 @@ function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbs
 }
 
 const LEARNING = {
-	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step.',
+	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step; with feedforward the law becomes u = −K(x − r) + k·r₁ and x_ss = r₁ exactly. When an actuator saturation is set, u is hard-clipped to ±saturation.',
 	stability: 'The closed-loop pole map plots the eigenvalues of A − BK (state feedback has no finite zeros). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
 	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| stays inside the chosen band; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand; Peak force is its largest single value.',
 	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (1/s² units of force authority) and Kd the velocity error.',
-	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference. Without it, u = −Kx drives the state to the origin instead.',
+	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference; with feedforward the law becomes u = −K(x − r) + k·r₁ so x_ss = r₁ exactly. Without it, u = −Kx drives the state to the origin instead.',
 }
 
 const SETTLING_OPTIONS = [
@@ -67,6 +67,46 @@ export function SimulateTab() {
 	const eigenvalues = w.stability?.eigenvalues
 	const poleInfo = w.stability ? poleSummary(w.stability.eigenvalues ?? []) : null
 	const settlingBand = w.settlingBand
+	const [positionFocus, setPositionFocus] = useState(false)
+
+	const r1 = w.reference[0]
+	const kDenom = w.springConstant + gain[0]
+	let xSS: number | null = metrics?.xSS ?? null
+	let eSS: number | null = metrics?.eSS ?? null
+	if (xSS === null && w.tracking && !w.feedforward && Math.abs(kDenom) > 1e-9) {
+		xSS = (gain[0] * r1) / kDenom
+		eSS = Math.abs(r1 - xSS)
+	}
+	if (w.feedforward) {
+		xSS = r1
+		eSS = 0
+	}
+
+	const trackBand = (settlingBand / 100) * Math.abs(r1)
+
+	const stabilityBadge: { text: string; tone: 'good' | 'bad' | 'neutral' } =
+		w.stability?.stable === true ? { text: 'Stable', tone: 'good' }
+		: w.stability?.stable === false ? { text: 'Unstable', tone: 'bad' }
+		: { text: 'Pending', tone: 'neutral' }
+
+	let trackingBadge: { text: string; tone: 'good' | 'bad' | 'neutral' }
+	if (!w.tracking) trackingBadge = { text: 'Not tracking', tone: 'neutral' }
+	else if (!metrics) trackingBadge = { text: 'Pending', tone: 'neutral' }
+	else if (eSS !== null && eSS <= trackBand) trackingBadge = { text: 'Tracks · e_ss within band', tone: 'good' }
+	else if (metrics.finalError <= trackBand) trackingBadge = { text: 'Tracks · final within band', tone: 'good' }
+	else if (metrics.settlingTime === null) trackingBadge = { text: 'Offset may persist', tone: 'neutral' }
+	else trackingBadge = { text: 'Offset exceeds band', tone: 'bad' }
+
+	let settlingBadge: { text: string; tone: 'good' | 'neutral' }
+	if (!metrics) settlingBadge = { text: 'Pending', tone: 'neutral' }
+	else if (metrics.settlingTime === null) settlingBadge = { text: 'Not reached', tone: 'neutral' }
+	else settlingBadge = { text: `Settles at ${fmt(metrics.settlingTime)} s`, tone: 'good' }
+
+	let actuatorBadge: { text: string; tone: 'good' | 'bad' | 'neutral' }
+	if (w.saturation <= 0) actuatorBadge = { text: 'Unlimited', tone: 'neutral' }
+	else if (!metrics) actuatorBadge = { text: 'Pending', tone: 'neutral' }
+	else if (metrics.maxControl <= w.saturation) actuatorBadge = { text: `Within ±${fmt(w.saturation)} N`, tone: 'good' }
+	else actuatorBadge = { text: `Exceeds ±${fmt(w.saturation)} N`, tone: 'bad' }
 
 	return (
 		<div className="stack">
@@ -108,7 +148,18 @@ export function SimulateTab() {
 					</div>
 					<div style={{ marginTop: 12 }} className="row row--between">
 						<CheckField label="Reference tracking" checked={w.tracking} onChange={(v) => w.update({ tracking: v })} hint={LEARNING.tracking} />
-						<span className="mono faint">u = −{fmt(gain[0], 3)}·(x₁ − r₁) − {fmt(gain[1], 3)}·(x₂ − r₂)</span>
+						<span className="mono faint">
+							{w.tracking
+								? `u = −${fmt(gain[0], 3)}·(x₁ − r₁) − ${fmt(gain[1], 3)}·(x₂ − r₂)${w.feedforward ? ' + k·r₁' : ''}`
+								: `u = −${fmt(gain[0], 3)}·x₁ − ${fmt(gain[1], 3)}·x₂`}
+						</span>
+					</div>
+					<div style={{ marginTop: 8 }} className="row">
+						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
+							<input type="checkbox" checked={w.feedforward} disabled={!w.tracking} onChange={(e) => w.update({ feedforward: e.target.checked })} />
+							<span>Reference feedforward</span>
+							<Info text="Feedforward adds +k·r₁ to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking." />
+						</label>
 					</div>
 				</Panel>
 			</section>
@@ -125,6 +176,8 @@ export function SimulateTab() {
 							value={w.endTime} min={0.1} step={1} onChange={(v) => w.update({ endTime: v })} />
 						<NumberField label="Time step" unit="s" hint="RK4 integration step. Smaller steps are more accurate but cost more samples; 0.01 is a good default."
 							value={w.timeStep} min={0.0001} step={0.001} onChange={(v) => w.update({ timeStep: v })} />
+						<NumberField label="Actuator saturation" unit="N" hint="0 = unlimited. Otherwise the control force u is hard-clipped to ±saturation at every integration step."
+							value={w.saturation} min={0} step={1} onChange={(v) => w.update({ saturation: v })} />
 						<NumberField label="Initial position" unit="m" hint="Starting position x(0)."
 							value={w.initialState[0]} step={0.1} onChange={(v) => w.update({ initialState: [v, w.initialState[1]] })} />
 						<NumberField label="Initial velocity" unit="m/s" hint="Starting velocity ẋ(0)."
@@ -140,8 +193,10 @@ export function SimulateTab() {
 			</section>
 
 			<div className="charts-grid charts-grid--2a">
-				<Panel title="Position x₁(t)">
-					{w.simulation ? <TrajectoryChart response={w.simulation} kind="position" /> : <div className="empty">No simulation yet</div>}
+				<Panel title="Position x₁(t)" right={w.simulation ? (
+					<button type="button" className="btn btn--sm" onClick={() => setPositionFocus((f) => !f)}>Focus on reference</button>
+				) : undefined}>
+					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <div className="empty">No simulation yet</div>}
 				</Panel>
 				<Panel title="Closed-Loop Poles">
 					{w.stability ? (
@@ -196,7 +251,7 @@ export function SimulateTab() {
 						<div className="metric-group">
 							<p className="metric-group__label">Tracking quality</p>
 							<div className="grid-3">
-								<MetricCard hint="Measured |r₁ − x₁| at the end of the horizon. With PD feedback a static offset can remain; see the steady-state error note below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
+								<MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
 								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
 								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
 							</div>
@@ -215,6 +270,7 @@ export function SimulateTab() {
 							<div className="grid-3">
 								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
 								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
+								<MetricCard hint="Hard limit on |u(t)|. 0 means unlimited." label="Saturation" value={w.saturation > 0 ? `±${fmt(w.saturation, 2)} N` : 'Unlimited'} sub="u clamped" />
 							</div>
 						</div>
 					</>
@@ -223,18 +279,23 @@ export function SimulateTab() {
 				)}
 			</Panel>
 
+			<Panel title="Compliance">
+				<div className="badge-row">
+					<Badge key="stability" tone={stabilityBadge.tone}>{stabilityBadge.text}</Badge>
+					<Badge key="tracking" tone={trackingBadge.tone}>{trackingBadge.text}</Badge>
+					<Badge key="settling" tone={settlingBadge.tone}>{settlingBadge.text}</Badge>
+					<Badge key="actuator" tone={actuatorBadge.tone}>{actuatorBadge.text}</Badge>
+				</div>
+			</Panel>
+
 			{w.tracking && (
 				<Panel title="Steady-state error">
-					<p className="faint" style={{ marginTop: 0 }}>
-						With u = −K(x − r), state feedback alone cannot cancel the spring's static load. The position
-						settles at x_ss = Kp/(k + Kp) · r₁, so the steady-state error is e_ss = k/(k + Kp) · r₁.
-						{gain[0] + w.springConstant !== 0 ? (
-							<span> For these gains e_ss = {fmt((w.springConstant / (w.springConstant + gain[0])) * w.reference[0], 4)} m, matching the measured Final error above.</span>
-						) : (
-							<span> (undefined: k + Kp = 0).</span>
-						)}{' '}
-						Raising Kp shrinks the offset but never removes it. Add integral action (PID, or a state
-						augmented with ∫e dt) to drive e_ss to zero.
+					<div className="grid-3">
+						<MetricCard label="Measured final error" value={metrics ? fmt(metrics.finalError) : 'n/a'} hint="Measured |r₁ − x₁| at the last sample." />
+						<MetricCard label="Analytic e_ss" value={xSS === null ? 'n/a' : fmt(eSS)} hint="Analytic steady-state error |r₁ − x_ss|; 0 with feedforward." />
+					</div>
+					<p className="faint" style={{ marginTop: 10 }}>
+						PD-only state feedback leaves the static offset e_ss = k·r₁/(k + Kp); feedforward (+k·r₁) cancels the load so x_ss = r₁ and e_ss = 0.
 					</p>
 				</Panel>
 			)}
@@ -251,8 +312,8 @@ export function SimulateTab() {
 						</thead>
 						<tbody>
 							{metrics.settlingTimeByBand.map((b) => (
-								<tr key={b.band}>
-									<td>{b.band}% of |r|</td>
+								<tr key={b.bandPercent}>
+									<td>{b.bandPercent}% of |r|</td>
 									<td>{b.time === null ? 'Not reached' : `${fmt(b.time, 3)} s`}</td>
 								</tr>
 							))}

@@ -330,7 +330,7 @@ export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }:
 		<div className="stack">
 			<p className="faint" style={{ marginTop: 0 }}>
 				{breakdown.normalized
-					? 'J = Σ wᵢ·(metricᵢ / referenceᵢ), normalized against your manual gain. A normalized value of 1.0 means the candidate matches your manual gain on that metric; below 1 is better, above is worse. Weighted contributions sum to J.'
+					? 'J = Σ wᵢ·(metricᵢ / scaleᵢ): each term is normalized against a fixed positive scale (IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling by T, overshoot by 100), so J is deterministic and 1.0 on a term means its metric equals that scale. Below 1 is better, above is worse. Weighted contributions sum to J.'
 					: `J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O with raw weighting ${baselineNote ?? '(no manual-gain baseline was used, or the baseline could not be evaluated)'}. When a run never settles, the settling term is penalized as the full horizon.`}
 			</p>
 			<table className="data">

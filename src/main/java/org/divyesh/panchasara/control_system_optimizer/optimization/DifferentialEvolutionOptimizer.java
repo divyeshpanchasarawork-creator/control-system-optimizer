@@ -119,14 +119,15 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 			return true;
 		}
 		int window = Math.max(1, convergence.size() / 5);
-		double start = convergence.get(Math.max(0, convergence.size() - window - 1)).bestCost();
-		double end = convergence.getLast().bestCost();
-		if (!Double.isFinite(end)) {
+		// bestCost is nullable (sanitized to null when non-finite); an infeasible
+		// start or end never counts as converged
+		Double startValue = convergence.get(Math.max(0, convergence.size() - window - 1)).bestCost();
+		Double endValue = convergence.getLast().bestCost();
+		if (startValue == null || endValue == null) {
 			return false;
 		}
-		if (!Double.isFinite(start)) {
-			return false;
-		}
+		double start = startValue;
+		double end = endValue;
 		double relativeImprovement = (start - end) / Math.max(1e-12, Math.abs(start));
 		return relativeImprovement < 1e-4;
 	}

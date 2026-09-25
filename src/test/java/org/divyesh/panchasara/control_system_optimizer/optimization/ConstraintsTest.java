@@ -13,39 +13,61 @@ class ConstraintsTest {
 	@Test
 	void absentConstraintsAreNotEnforced() {
 		Constraints constraints = new Constraints(null, null, null);
-		Constraints.ConstraintReport report = constraints.check(100.0, 50.0, Double.NaN);
+		Constraints.ConstraintReport report = constraints.check(100.0, 50.0, null, 1.0, null);
 		assertNull(report.maxControl());
 		assertNull(report.maxOvershoot());
 		assertNull(report.maxSettlingTime());
+		assertNull(report.maxControlEnergy());
+		assertNull(report.maxSteadyStateError());
 	}
 
 	@Test
 	void satisfiedLimitsReportAchievedAndSatisfied() {
-		Constraints constraints = new Constraints(20.0, 10.0, 3.0);
-		Constraints.ConstraintReport report = constraints.check(8.5, 2.0, 1.4);
+		Constraints constraints = new Constraints(20.0, 10.0, 3.0, 1.0, 2.0);
+		Constraints.ConstraintReport report = constraints.check(8.5, 2.0, 1.4, 0.5, 0.1);
 		assertTrue(report.maxControl().satisfied());
 		assertEquals(8.5, report.maxControl().achieved());
 		assertEquals(20.0, report.maxControl().limit());
 		assertEquals("max-control", report.maxControl().id());
 		assertTrue(report.maxOvershoot().satisfied());
 		assertTrue(report.maxSettlingTime().satisfied());
+		assertTrue(report.maxControlEnergy().satisfied());
+		assertTrue(report.maxSteadyStateError().satisfied());
 	}
 
 	@Test
 	void violatedLimitsReportNotSatisfied() {
-		Constraints constraints = new Constraints(20.0, 10.0, 3.0);
-		Constraints.ConstraintReport report = constraints.check(30.0, 12.0, 4.0);
+		Constraints constraints = new Constraints(20.0, 10.0, 3.0, 5.0, 2.0);
+		Constraints.ConstraintReport report = constraints.check(30.0, 12.0, 4.0, 3.0, 6.0);
 		assertFalse(report.maxControl().satisfied());
 		assertFalse(report.maxOvershoot().satisfied());
 		assertFalse(report.maxSettlingTime().satisfied());
+		assertFalse(report.maxControlEnergy().satisfied());
+		assertFalse(report.maxSteadyStateError().satisfied());
 	}
 
 	@Test
 	void neverSettledViolatesSettlingTimeConstraint() {
 		Constraints constraints = new Constraints(null, null, 3.0);
-		Constraints.ConstraintReport report = constraints.check(5.0, 0.0, Double.NaN);
+		Constraints.ConstraintReport report = constraints.check(5.0, 0.0, null, 0.5, null);
 		assertFalse(report.maxSettlingTime().satisfied());
 		assertNull(report.maxSettlingTime().achieved());
+	}
+
+	@Test
+	void undefinedSteadyStateErrorIsNotViolated() {
+		Constraints constraints = new Constraints(null, null, null, 2.0, null);
+		Constraints.ConstraintReport report = constraints.check(5.0, 0.0, 1.0, 0.5, null);
+		assertTrue(report.maxSteadyStateError().satisfied());
+		assertNull(report.maxSteadyStateError().achieved());
+	}
+
+	@Test
+	void achievedAtLimitPassesWithinTolerance() {
+		Constraints constraints = new Constraints(8.5, null, null, null, 2.5);
+		Constraints.ConstraintReport report = constraints.check(8.5, 0.0, 1.0, 2.5, null);
+		assertTrue(report.maxControl().satisfied());
+		assertTrue(report.maxControlEnergy().satisfied());
 	}
 
 	@Test
@@ -53,5 +75,7 @@ class ConstraintsTest {
 		assertThrows(IllegalArgumentException.class, () -> new Constraints(0.0, null, null));
 		assertThrows(IllegalArgumentException.class, () -> new Constraints(null, -1.0, null));
 		assertThrows(IllegalArgumentException.class, () -> new Constraints(null, null, 0.0));
+		assertThrows(IllegalArgumentException.class, () -> new Constraints(null, null, null, -1.0, null));
+		assertThrows(IllegalArgumentException.class, () -> new Constraints(null, null, null, null, 0.0));
 	}
 }

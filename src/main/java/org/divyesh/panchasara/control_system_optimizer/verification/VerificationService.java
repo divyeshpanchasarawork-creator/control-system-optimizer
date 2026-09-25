@@ -145,7 +145,7 @@ public final class VerificationService {
 		PerformanceMetrics direct = performanceAnalyzer.analyze(simulate(system, c.gains(), COARSE_DT), 0.02);
 
 		WeightedControlObjective objective = new WeightedControlObjective(ObjectiveWeights.DEFAULT);
-		ControlProblemFactory.DetailedEvaluation evaluation = problemFactory.evaluateCandidate(system, true, settings,
+		ControlProblemFactory.DetailedEvaluation evaluation = problemFactory.evaluateCandidate(system, true, false, settings,
 				objective, null, c.gains());
 		PerformanceMetrics viaClosedLoop = evaluation.metrics();
 
@@ -166,7 +166,7 @@ public final class VerificationService {
 		double[] lower = { 0.0, 0.0 };
 		double[] upper = { 30.0, 10.0 };
 
-		OptimizationProblem problem = problemFactory.createProblem(system, true, settings, objective, null, lower,
+		OptimizationProblem problem = problemFactory.createProblem(system, true, false, settings, objective, null, lower,
 				upper, new String[] { "kp", "kd" });
 
 		OptimizationResult grid = new DeterministicGridSearchOptimizer(new GridSearchConfig(new int[] { 16, 11 }))
@@ -192,7 +192,7 @@ public final class VerificationService {
 	private CrossValidationCheck crossValidationOf(String optimizer, OptimizationProblem problem,
 			OptimizationResult result, double bestOther, WeightedControlObjective objective, SpringDamperSystem system,
 			SimulationSettings settings) {
-		ControlProblemFactory.DetailedEvaluation evaluation = problemFactory.evaluateCandidate(system, true, settings,
+		ControlProblemFactory.DetailedEvaluation evaluation = problemFactory.evaluateCandidate(system, true, false, settings,
 				objective, null, result.bestParameters());
 		double reproduced = evaluation.cost();
 		double gap = Math.abs(result.bestCost() - bestOther);

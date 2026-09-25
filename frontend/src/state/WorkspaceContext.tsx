@@ -18,6 +18,7 @@ export interface WorkspaceState {
 	springConstant: number
 
 	tracking: boolean
+	feedforward: boolean
 	manualGain: [number, number]
 	optimizedGain: [number, number] | null
 	useOptimized: boolean
@@ -27,6 +28,7 @@ export interface WorkspaceState {
 	endTime: number
 	timeStep: number
 	settlingBand: number
+	saturation: number
 
 	gainLower: [number, number]
 	gainUpper: [number, number]
@@ -44,11 +46,15 @@ export interface WorkspaceState {
 	maxControl: number
 	maxOvershoot: number
 	maxSettlingTime: number
+	maxSteadyStateError: number
+	maxControlEnergy: number
 
 	trackingErrorWeight: number
 	controlEffortWeight: number
 	settlingTimeWeight: number
 	overshootWeight: number
+	steadyStateErrorEnabled: boolean
+	steadyStateErrorWeight: number
 
 	simulation: SimulationResponse | null
 	stability: StabilityResponse | null
@@ -66,9 +72,18 @@ export interface WorkspaceState {
 	runOptimization: () => Promise<void>
 	applyOptimizedGain: () => void
 	clearResults: () => void
+	resetWorkspace: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null)
+
+function isAbortError(e: unknown): boolean {
+	return e instanceof Error && e.name === 'AbortError'
+}
+
+function errorMessage(e: unknown): string {
+	return e instanceof Error ? e.message : String(e)
+}
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [systemDescriptor, setSystemDescriptor] = useState<SystemDescriptor | null>(null)
@@ -77,6 +92,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [springConstant, setSpringConstant] = useState(2)
 
 	const [tracking, setTracking] = useState(true)
+	const [feedforward, setFeedforward] = useState(false)
 	const [manualGain, setManualGain] = useState<[number, number]>([10, 5])
 	const [optimizedGain, setOptimizedGain] = useState<[number, number] | null>(null)
 	const [useOptimized, setUseOptimized] = useState(false)
@@ -86,6 +102,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [endTime, setEndTime] = useState(10)
 	const [timeStep, setTimeStep] = useState(0.01)
 	const [settlingBand, setSettlingBand] = useState(5)
+	const [saturation, setSaturation] = useState(0)
 
 	const [gainLower, setGainLower] = useState<[number, number]>([0, 0])
 	const [gainUpper, setGainUpper] = useState<[number, number]>([40, 20])
@@ -103,11 +120,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [maxControl, setMaxControl] = useState(50)
 	const [maxOvershoot, setMaxOvershoot] = useState(10)
 	const [maxSettlingTime, setMaxSettlingTime] = useState(5)
+	const [maxSteadyStateError, setMaxSteadyStateError] = useState(0.05)
+	const [maxControlEnergy, setMaxControlEnergy] = useState(40)
 
 	const [trackingErrorWeight, setTrackingErrorWeight] = useState(1)
 	const [controlEffortWeight, setControlEffortWeight] = useState(0.1)
 	const [settlingTimeWeight, setSettlingTimeWeight] = useState(0.5)
 	const [overshootWeight, setOvershootWeight] = useState(0.5)
+	const [steadyStateErrorEnabled, setSteadyStateErrorEnabled] = useState(false)
+	const [steadyStateErrorWeight, setSteadyStateErrorWeight] = useState(1)
 
 	const [simulation, setSimulation] = useState<SimulationResponse | null>(null)
 	const [stability, setStability] = useState<StabilityResponse | null>(null)
@@ -147,33 +168,33 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				type: 'SPRING_DAMPER' as const,
 				parameters: { mass, damping, springConstant },
 			}
-			const controller = { type: 'STATE_FEEDBACK' as const, gain: applied, tracking }
+			const controller = { type: 'STATE_FEEDBACK' as const, gain: applied, tracking, feedforward }
 			const res = await api.simulate({
 				system,
 				controller,
-				simulation: { initialState, reference, endTime, timeStep, settlingBand },
+				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
 			})
 			setSimulation(res)
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			if (!isAbortError(e)) setError(errorMessage(e))
 		} finally {
 			if (silent) endSilent()
 			else setLoading(null)
 		}
-	}, [mass, damping, springConstant, tracking, manualGain, optimizedGain, useOptimized, initialState, reference, endTime, timeStep, settlingBand])
+	}, [mass, damping, springConstant, tracking, feedforward, manualGain, optimizedGain, useOptimized, initialState, reference, endTime, timeStep, settlingBand, saturation])
 
 	const simulateGain = useCallback(async (gain: [number, number]): Promise<SimulationResponse> => {
 		const system = {
 			type: 'SPRING_DAMPER' as const,
 			parameters: { mass, damping, springConstant },
 		}
-		const controller = { type: 'STATE_FEEDBACK' as const, gain, tracking }
+		const controller = { type: 'STATE_FEEDBACK' as const, gain, tracking, feedforward }
 		return api.simulate({
 			system,
 			controller,
-			simulation: { initialState, reference, endTime, timeStep, settlingBand },
+			simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
 		})
-	}, [mass, damping, springConstant, tracking, initialState, reference, endTime, timeStep, settlingBand])
+	}, [mass, damping, springConstant, tracking, feedforward, initialState, reference, endTime, timeStep, settlingBand, saturation])
 
 	const runStability = useCallback(async (options?: { silent?: boolean }) => {
 		const silent = options?.silent ?? false
@@ -189,16 +210,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				type: 'STATE_FEEDBACK' as const,
 				gain: useOptimized && optimizedGain ? optimizedGain : manualGain,
 				tracking,
+				feedforward,
 			}
 			const res = await api.stability({ system, controller })
 			setStability(res)
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			if (!isAbortError(e)) setError(errorMessage(e))
 		} finally {
 			if (silent) endSilent()
 			else setLoading(null)
 		}
-	}, [mass, damping, springConstant, tracking, manualGain, optimizedGain, useOptimized])
+	}, [mass, damping, springConstant, tracking, feedforward, manualGain, optimizedGain, useOptimized])
 
 	const runOptimization = useCallback(async () => {
 		setLoading('Optimizing gains…')
@@ -210,7 +232,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 			}
 			const res = await api.optimize({
 				system,
-				controller: { type: 'STATE_FEEDBACK' as const, gain: [], tracking },
+				controller: { type: 'STATE_FEEDBACK' as const, gain: [], tracking, feedforward },
 				gainBounds: { lower: gainLower, upper: gainUpper },
 				optimizer: {
 					type: optimizerType,
@@ -227,26 +249,30 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 					controlEffortWeight,
 					settlingTimeWeight,
 					overshootWeight,
+					steadyStateErrorWeight: steadyStateErrorEnabled ? steadyStateErrorWeight : undefined,
+					steadyStateErrorScale: steadyStateErrorEnabled ? Math.abs(reference[0]) || 1 : undefined,
 				},
 				constraints: constraintsEnabled
 					? {
 						maxControl,
 						maxOvershoot,
 						maxSettlingTime,
+						maxSteadyStateError,
+						maxControlEnergy,
 					}
 					: undefined,
-				simulation: { initialState, reference, endTime, timeStep, settlingBand },
+				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
 			})
 			setOptimizerResult(res)
-			if (res.feasible && res.bestGain.length >= 1) {
+			if (res.feasible && Array.isArray(res.bestGain) && res.bestGain.length >= 1) {
 				setOptimizedGain([res.bestGain[0] ?? 0, res.bestGain[1] ?? res.bestGain[0] ?? 0])
 			}
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			if (!isAbortError(e)) setError(errorMessage(e))
 		} finally {
 			setLoading(null)
 		}
-	}, [mass, damping, springConstant, tracking, gainLower, gainUpper, optimizerType, gridResolution, includeCostSurface, populationSize, maxIterations, differentialWeight, crossoverRate, seed, trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight, initialState, reference, endTime, timeStep, settlingBand, constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, manualGain])
+	}, [mass, damping, springConstant, tracking, feedforward, gainLower, gainUpper, optimizerType, gridResolution, includeCostSurface, populationSize, maxIterations, differentialWeight, crossoverRate, seed, trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight, steadyStateErrorEnabled, steadyStateErrorWeight, initialState, reference, endTime, timeStep, settlingBand, saturation, constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, maxSteadyStateError, maxControlEnergy, manualGain])
 
 	const applyOptimizedGain = useCallback(() => {
 		if (optimizedGain) {
@@ -263,11 +289,55 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		setError(null)
 	}, [])
 
+	const resetWorkspace = useCallback(() => {
+		setMass(1)
+		setDamping(0.5)
+		setSpringConstant(2)
+		setTracking(true)
+		setFeedforward(false)
+		setManualGain([10, 5])
+		setOptimizedGain(null)
+		setUseOptimized(false)
+		setInitialState([0, 0])
+		setReference([1, 0])
+		setEndTime(10)
+		setTimeStep(0.01)
+		setSettlingBand(5)
+		setSaturation(0)
+		setGainLower([0, 0])
+		setGainUpper([40, 20])
+		setOptimizerType('GRID_SEARCH')
+		setGridResolution(41)
+		setIncludeCostSurface(true)
+		setPopulationSize(24)
+		setMaxIterations(150)
+		setDifferentialWeight(0.7)
+		setCrossoverRate(0.9)
+		setSeed(42)
+		setConstraintsEnabled(false)
+		setMaxControl(50)
+		setMaxOvershoot(10)
+		setMaxSettlingTime(5)
+		setMaxSteadyStateError(0.05)
+		setMaxControlEnergy(40)
+		setTrackingErrorWeight(1)
+		setControlEffortWeight(0.1)
+		setSettlingTimeWeight(0.5)
+		setOvershootWeight(0.5)
+		setSteadyStateErrorEnabled(false)
+		setSteadyStateErrorWeight(1)
+		setSimulation(null)
+		setStability(null)
+		setOptimizerResult(null)
+		setError(null)
+	}, [])
+
 	const update = useCallback((patch: Partial<WorkspaceState>) => {
 		if (patch.mass !== undefined) setMass(patch.mass)
 		if (patch.damping !== undefined) setDamping(patch.damping)
 		if (patch.springConstant !== undefined) setSpringConstant(patch.springConstant)
 		if (patch.tracking !== undefined) setTracking(patch.tracking)
+		if (patch.feedforward !== undefined) setFeedforward(patch.feedforward)
 		if (patch.manualGain !== undefined) setManualGain(patch.manualGain)
 		if (patch.optimizedGain !== undefined) setOptimizedGain(patch.optimizedGain)
 		if (patch.useOptimized !== undefined) setUseOptimized(patch.useOptimized)
@@ -276,6 +346,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		if (patch.endTime !== undefined) setEndTime(patch.endTime)
 		if (patch.timeStep !== undefined) setTimeStep(patch.timeStep)
 		if (patch.settlingBand !== undefined) setSettlingBand(patch.settlingBand)
+		if (patch.saturation !== undefined) setSaturation(patch.saturation)
 		if (patch.gainLower !== undefined) setGainLower(patch.gainLower)
 		if (patch.gainUpper !== undefined) setGainUpper(patch.gainUpper)
 		if (patch.optimizerType !== undefined) setOptimizerType(patch.optimizerType)
@@ -290,10 +361,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		if (patch.maxControl !== undefined) setMaxControl(patch.maxControl)
 		if (patch.maxOvershoot !== undefined) setMaxOvershoot(patch.maxOvershoot)
 		if (patch.maxSettlingTime !== undefined) setMaxSettlingTime(patch.maxSettlingTime)
+		if (patch.maxSteadyStateError !== undefined) setMaxSteadyStateError(patch.maxSteadyStateError)
+		if (patch.maxControlEnergy !== undefined) setMaxControlEnergy(patch.maxControlEnergy)
 		if (patch.trackingErrorWeight !== undefined) setTrackingErrorWeight(patch.trackingErrorWeight)
 		if (patch.controlEffortWeight !== undefined) setControlEffortWeight(patch.controlEffortWeight)
 		if (patch.settlingTimeWeight !== undefined) setSettlingTimeWeight(patch.settlingTimeWeight)
 		if (patch.overshootWeight !== undefined) setOvershootWeight(patch.overshootWeight)
+		if (patch.steadyStateErrorEnabled !== undefined) setSteadyStateErrorEnabled(patch.steadyStateErrorEnabled)
+		if (patch.steadyStateErrorWeight !== undefined) setSteadyStateErrorWeight(patch.steadyStateErrorWeight)
 	}, [])
 
 	const value: WorkspaceState = {
@@ -302,6 +377,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		damping,
 		springConstant,
 		tracking,
+		feedforward,
 		manualGain,
 		optimizedGain,
 		useOptimized,
@@ -310,6 +386,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		endTime,
 		timeStep,
 		settlingBand,
+		saturation,
 		gainLower,
 		gainUpper,
 		optimizerType,
@@ -324,10 +401,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		maxControl,
 		maxOvershoot,
 		maxSettlingTime,
+		maxSteadyStateError,
+		maxControlEnergy,
 		trackingErrorWeight,
 		controlEffortWeight,
 		settlingTimeWeight,
 		overshootWeight,
+		steadyStateErrorEnabled,
+		steadyStateErrorWeight,
 		simulation,
 		stability,
 		optimizerResult,
@@ -342,6 +423,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		runOptimization,
 		applyOptimizedGain,
 		clearResults,
+		resetWorkspace,
 	}
 
 	return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>

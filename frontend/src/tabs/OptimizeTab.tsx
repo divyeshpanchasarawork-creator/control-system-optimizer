@@ -1,17 +1,17 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField } from '../components/common'
+import { CheckField, Info, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 
 const LEARNING = {
-	optimize: 'The optimizer searches the gain box [Kp_min, Kp_max] × [Kd_min, Kd_max] for the pair K = (Kp, Kd) that minimizes the weighted objective J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O, where U is control energy ∫u² dt. Lower J = better tracking with less control effort. Grid search sweeps the box exhaustively (slow but complete) and returns the full cost surface. Differential evolution evolves a population using mutation (F) and crossover (CR): fast, seeded, and reproducible.',
-	objective: 'The four weights trade off competing goals. trackingError (wₑ) punishes accumulated deviation; control energy (wᵤ) punishes commanding the actuator hard; settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference. Raise a weight to favor that property. The presets set sensible starting points.',
-	formula: 'J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O, where IAE is integrated position error ∫|r₁ − x₁| dt, U is control energy ∫u² dt, Tₛ is settling time (missing runs are penalized as the full horizon), O is overshoot %. Lower J is better.',
+	optimize: 'The optimizer searches the gain box [Kp_min, Kp_max] × [Kd_min, Kd_max] for the pair K = (Kp, Kd) that minimizes the weighted objective J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O (+ wᵥ·e_ss when the steady-state term is enabled), where U is control energy ∫u² dt and e_ss is the analytic steady-state tracking error. Every term is normalized against a fixed positive scale derived from the problem, so results do not depend on any manual baseline gain. Lower J = better tracking with less control effort. Grid search sweeps the box exhaustively (slow but complete) and returns the full cost surface. Differential evolution evolves a population using mutation (F) and crossover (CR): fast, seeded, and reproducible.',
+	objective: 'The weights trade off competing goals. trackingError (wₑ) punishes accumulated deviation; control energy (wᵤ) punishes commanding the actuator hard; settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference; steadyStateError (wᵥ, optional) punishes the residual tracking offset directly. Raise a weight to favor that property. Terms are normalized against fixed scales derived from the problem, so J stays comparable across gain ranges. The presets set sensible starting points.',
+	formula: 'J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O (+ wᵥ·e_ss when the steady-state term is enabled), where IAE is integrated position error ∫|r₁ − x₁| dt, U is control energy ∫u² dt, Tₛ is settling time (missing runs are penalized as the full horizon), O is overshoot %, and e_ss is the analytic steady-state tracking error. Each term is normalized by a fixed positive scale (IAE by |r₁|·T, energy by (k·|r₁|)²·T, settling by T, overshoot by 100, steady-state error by |r₁|). Lower J is better.',
 	convergence: 'The convergence curve shows the best objective J found at each progression step. Grid search improves monotonically as it evaluates more of the box; DE improves per generation. When the curve flattens, extra iterations stop paying off.',
 	grid: 'Grid search evaluates every point on a resolution × resolution lattice over the gain box. Lower resolution = fast, coarse; higher resolution = fine, slow. With "Return cost surface" on, the response includes the full heatmap: dark blue is low J (good), white/null is infeasible.',
 	de: 'DE keeps a population of candidate gain vectors. Each generation it mutates members (differentialWeight F scales the difference between two members) and crosses them (crossoverRate CR mixes in mutant genes). maxIterations limits generations; seed makes the run deterministic.',
-	constraints: 'Constraints are off by default. When enabled, candidates that violate them are treated as infeasible. The optimizer must stay within the actuator and response limits. The result reports achieved vs limit for each.',
+	constraints: 'Constraints are off by default. When enabled, candidates that violate them are treated as infeasible. Limits cover peak force, overshoot, settling time, steady-state tracking error e_ss, and control energy U = ∫u² dt. The result reports achieved vs limit for each, and when no feasible candidate exists the response explains why.',
 }
 
 const PRESETS: { key: string; label: string; weights: { trackingErrorWeight: number; controlEffortWeight: number; settlingTimeWeight: number; overshootWeight: number } }[] = [
@@ -46,7 +46,7 @@ export function OptimizeTab() {
 	const constraintReport = w.optimizerResult?.constraints
 
 const boundaryHits: string[] = []
-	if (w.optimizerResult?.feasible && w.optimizerResult.bestGain.length >= 2) {
+	if (w.optimizerResult?.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 2) {
 		const axes: { label: string; index: number }[] = [
 			{ label: 'Kp', index: 0 },
 			{ label: 'Kd', index: 1 },
@@ -75,7 +75,7 @@ const boundaryHits: string[] = []
 		if (p) w.update({ ...p.weights })
 	}
 
-	const constraintFields = [w.maxControl, w.maxOvershoot, w.maxSettlingTime]
+	const constraintFields = [w.maxControl, w.maxOvershoot, w.maxSettlingTime, w.maxSteadyStateError, w.maxControlEnergy]
 	const hasActiveConstraints = w.constraintsEnabled && constraintFields.some((v) => Number.isFinite(v) && v > 0)
 
 	return (
@@ -175,6 +175,17 @@ const boundaryHits: string[] = []
 						))}
 					</div>
 					<ObjectiveBars weights={weights} onChange={handleWeight} />
+					<p className="faint" style={{ marginBottom: 0, marginTop: 12 }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
+					<div style={{ marginTop: 12 }} className="row">
+						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
+							<input type="checkbox" checked={w.steadyStateErrorEnabled} disabled={!w.tracking} onChange={(e) => w.update({ steadyStateErrorEnabled: e.target.checked })} />
+							<span>Include steady-state error term</span>
+							<Info text="Adds wᵥ·(e_ss / |r₁|) to J, where e_ss is the analytic steady-state error (k·r₁/(k+Kp) for PD, 0 with feedforward). Encodes the residual tracking offset directly." />
+						</label>
+						{w.steadyStateErrorEnabled && (
+							<NumberField label="Steady-state error weight" value={w.steadyStateErrorWeight} min={0} step={0.1} onChange={(v) => w.update({ steadyStateErrorWeight: v })} />
+						)}
+					</div>
 				</Panel>
 			</section>
 
@@ -191,6 +202,10 @@ const boundaryHits: string[] = []
 								value={Number.isFinite(w.maxOvershoot) ? w.maxOvershoot : 0} min={0} step={1} onChange={(v) => w.update({ maxOvershoot: v })} />
 							<NumberField label="Max settling time" unit="s" hint="Latest time the response may settle (within the settling band)."
 								value={Number.isFinite(w.maxSettlingTime) ? w.maxSettlingTime : 0} min={0} step={0.5} onChange={(v) => w.update({ maxSettlingTime: v })} />
+							<NumberField label="Max steady-state error" unit="m" hint="Ceiling on the analytic steady-state tracking error e_ss. Candidates with a larger residual offset are infeasible."
+								value={Number.isFinite(w.maxSteadyStateError) ? w.maxSteadyStateError : 0} min={0} step={0.01} onChange={(v) => w.update({ maxSteadyStateError: v })} />
+							<NumberField label="Max control energy" unit="N²·s" hint="Ceiling on U = ∫u² dt. Candidates that demand too much cumulative actuator work are infeasible."
+								value={Number.isFinite(w.maxControlEnergy) ? w.maxControlEnergy : 0} min={0} step={1} onChange={(v) => w.update({ maxControlEnergy: v })} />
 						</div>
 					)}
 				</Panel>
@@ -232,14 +247,22 @@ const boundaryHits: string[] = []
 							</div>
 							<div className="opt-summary__row">
 								<span>Best candidate</span>
-								<span className="mono">K = [{w.optimizerResult.bestGain.map((g) => fmt(g, 3)).join(', ')}]</span>
+								<span className="mono">K = [{(w.optimizerResult.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')}]</span>
 							</div>
 							<div className="opt-summary__row">
 								<span>Objective</span>
 								<span className="mono">J = {w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</span>
 							</div>
+							<div className="opt-summary__row">
+								<span>Control law</span>
+								<span className="mono">u = −K(x − r){w.feedforward ? ' + k·r₁' : ''} · {w.saturation > 0 ? `u clamped to ±${fmt(w.saturation, 2)} N` : 'u unlimited'}</span>
+							</div>
 						</div>
 					</Panel>
+
+					{!w.optimizerResult.feasible && w.optimizerResult.infeasibleReason && (
+						<div className="callout callout--error">{w.optimizerResult.infeasibleReason}</div>
+					)}
 
 					{boundaryHit && (
 						<div className="callout callout--info">
@@ -261,7 +284,7 @@ const boundaryHits: string[] = []
 
 					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid-3">
-							<MetricCard hint="Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r)." label="Best gain" value={`[${w.optimizerResult.bestGain.map((g) => fmt(g, 3)).join(', ')}]`} />
+							<MetricCard hint="Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r)." label="Best gain" value={`[${(w.optimizerResult.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')}]`} />
 							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
 							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${w.optimizerResult.elapsedMillis} ms`} />
 							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'} />
@@ -269,7 +292,7 @@ const boundaryHits: string[] = []
 							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)} />
 						</div>
 
-						{w.optimizerResult.feasible && w.optimizerResult.bestGain.length >= 1 && (
+						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (
 							<div style={{ marginTop: 12 }} className="btn-row">
 								<button className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
 							</div>
@@ -283,13 +306,13 @@ const boundaryHits: string[] = []
 					</Panel>
 
 					{breakdown && (
-						<Panel title="Why this objective value?" right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the normalization reference (your manual gain), the normalized ratio (1.0 = same as manual), the weight, the weighted contribution and its share of J.</p></Learn>}>
-							<ObjectiveBreakdownTable
-								breakdown={breakdown}
-								notSettled={w.optimizerResult?.metrics?.settlingTime === null}
-								baselineNote={`the manual gain K = [${w.manualGain.map((g) => fmt(g, 3)).join(', ')}] could not be used as the baseline`}
-							/>
-						</Panel>
+					<Panel title="Why this objective value?" right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
+						<ObjectiveBreakdownTable
+							breakdown={breakdown}
+							notSettled={w.optimizerResult?.metrics?.settlingTime === null}
+							baselineNote="terms are raw (unnormalized) only when fixed scales are unavailable"
+						/>
+					</Panel>
 					)}
 
 					{constraintReport && hasActiveConstraints && (
@@ -318,7 +341,7 @@ const boundaryHits: string[] = []
 					)}
 
 					<Panel title="Convergence">
-						<ConvergenceChart points={w.optimizerResult.convergence} />
+						<ConvergenceChart points={w.optimizerResult.convergence} optimizerType={w.optimizerResult.optimizerType} />
 					</Panel>
 
 					{w.optimizerType === 'GRID_SEARCH' && hasSurface && (

@@ -49,13 +49,15 @@ public final class PerformanceAnalyzer {
 		double finalError = Math.abs(positionErrorOf(points.get(n - 1)));
 
 		double maxAbsError = 0.0;
-		double iae = 0.0;
-		double ise = 0.0;
-		double controlEffort = 0.0;
 		double maxControl = 0.0;
 		double prevT = points.getFirst().time();
 		double prevError = 0.0;
 		double prevControl = 0.0;
+		// Kahan-compensated accumulators keep the integrals accurate when many
+		// small samples are summed over long horizons
+		KahanAccumulator iae = new KahanAccumulator();
+		KahanAccumulator ise = new KahanAccumulator();
+		KahanAccumulator effort = new KahanAccumulator();
 
 		for (int i = 0; i < n; i++) {
 			TrajectoryPoint p = points.get(i);
@@ -67,9 +69,9 @@ public final class PerformanceAnalyzer {
 
 			if (i > 0) {
 				double dt = p.time() - prevT;
-				iae += 0.5 * dt * (eNorm + prevError);
-				ise += 0.5 * dt * (eNorm * eNorm + prevError * prevError);
-				controlEffort += 0.5 * dt * (uNorm * uNorm + prevControl * prevControl);
+				iae.add(0.5 * dt * (eNorm + prevError));
+				ise.add(0.5 * dt * (eNorm * eNorm + prevError * prevError));
+				effort.add(0.5 * dt * (uNorm * uNorm + prevControl * prevControl));
 			}
 
 			if (settlingBand > 0.0 && eNorm > settlingBand) {
@@ -100,8 +102,8 @@ public final class PerformanceAnalyzer {
 			}
 		}
 
-		return new PerformanceMetrics(finalError, maxAbsError, iae, ise, overshoot, settlingTime,
-				controlEffort, maxControl);
+		return new PerformanceMetrics(finalError, maxAbsError, iae.sum(), ise.sum(), overshoot, settlingTime,
+				effort.sum(), maxControl);
 	}
 
 	/**
@@ -163,5 +165,26 @@ public final class PerformanceAnalyzer {
 			sum += d * d;
 		}
 		return Math.sqrt(sum);
+	}
+
+	/**
+	 * Kahan-compensated summation: {@link #add(double)} folds the running
+	 * rounding error back into subsequent terms, so long sums of small trapezoid
+	 * increments stay accurate.
+	 */
+	private static final class KahanAccumulator {
+		private double sum = 0.0;
+		private double compensation = 0.0;
+
+		void add(double term) {
+			double adjusted = term - compensation;
+			double next = sum + adjusted;
+			compensation = (next - sum) - adjusted;
+			sum = next;
+		}
+
+		double sum() {
+			return sum;
+		}
 	}
 }

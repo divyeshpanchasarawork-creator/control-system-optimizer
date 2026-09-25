@@ -1,7 +1,7 @@
 package org.divyesh.panchasara.control_system_optimizer.optimization;
 
 /**
- * The four per-metric contributions that sum to the objective cost J. Each term
+ * The per-metric contributions that sum to the objective cost J. Each term
  * carries raw, normalized and weighted views so a UI can show exactly why one
  * gain beats another:
  *
@@ -11,20 +11,24 @@ package org.divyesh.panchasara.control_system_optimizer.optimization;
  *   J = Σ contributionᵢ
  * </pre>
  *
- * @param normalized true when the terms were normalized against a baseline
- *                   configuration's metrics (non-identity references)
+ * @param steadyStateError the optional analytic steady-state-error term;
+ *                         {@code null} when the term is disabled or not applicable
+ * @param normalized       true when the terms were normalized against the fixed
+ *                         scales (non-identity references)
  */
 public record ObjectiveBreakdown(
 		ObjectiveTerm trackingError,
 		ObjectiveTerm controlEffort,
 		ObjectiveTerm settlingTime,
 		ObjectiveTerm overshoot,
+		ObjectiveTerm steadyStateError,
 		boolean normalized,
 		double total) {
 
-	/** Convenience: whether the normalized value on a term is larger than 1 (worse than baseline). */
+	/** Convenience: whether the normalized value on a term is larger than 1 (worse than its scale). */
 	public boolean anyWorseThanBaseline() {
-		return exceeds(trackingError) || exceeds(controlEffort) || exceeds(settlingTime) || exceeds(overshoot);
+		return exceeds(trackingError) || exceeds(controlEffort) || exceeds(settlingTime) || exceeds(overshoot)
+				|| (steadyStateError != null && exceeds(steadyStateError));
 	}
 
 	private static boolean exceeds(ObjectiveTerm term) {

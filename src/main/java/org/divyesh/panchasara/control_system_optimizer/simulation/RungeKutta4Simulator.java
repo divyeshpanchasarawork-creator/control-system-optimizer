@@ -25,6 +25,9 @@ import org.springframework.stereotype.Component;
 @Component
 public final class RungeKutta4Simulator implements Simulator {
 
+	/** Upper bound on recorded steps, guarding against tiny time steps. */
+	public static final long MAX_STEPS = 200_000;
+
 	@Override
 	public Trajectory simulate(SimulationSetup setup) {
 		DynamicSystem system = setup.system();
@@ -33,6 +36,12 @@ public final class RungeKutta4Simulator implements Simulator {
 		double t0 = setup.startTime();
 		double tEnd = setup.endTime();
 		double dt = setup.timeStep();
+
+		long stepCount = (long) Math.ceil((tEnd - t0) / dt);
+		if (stepCount > MAX_STEPS) {
+			throw new IllegalArgumentException("Simulation would require " + stepCount
+					+ " steps (maximum " + MAX_STEPS + "); increase the time step");
+		}
 
 		double[] x = setup.initialState().clone();
 		double[] storedReference = setup.reference().clone();
@@ -78,6 +87,12 @@ public final class RungeKutta4Simulator implements Simulator {
 		if (u.length != setup.system().stateSpaceModel().inputDimension()) {
 			throw new IllegalStateException("Controller returned wrong input dimension: expected "
 					+ setup.system().stateSpaceModel().inputDimension() + " got " + u.length);
+		}
+		double sat = setup.saturation();
+		if (sat > 0.0) {
+			for (int i = 0; i < u.length; i++) {
+				u[i] = Math.max(-sat, Math.min(sat, u[i]));
+			}
 		}
 		return u;
 	}

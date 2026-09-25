@@ -31,7 +31,7 @@ public class StabilityService {
 
 	public StabilityResponse analyze(StabilityRequest request) {
 		DynamicSystem system = registry.create(request.system().type(), request.system().parameters());
-		Controller controller = simulationService.buildController(request.controller(), system.dimension());
+		Controller controller = simulationService.buildController(request.controller(), system);
 		if (!(controller instanceof StateFeedbackController stateFeedback)) {
 			throw new IllegalArgumentException("Stability analysis currently requires a STATE_FEEDBACK controller");
 		}

@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -30,12 +31,30 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler({ IllegalArgumentException.class, HttpMessageNotReadableException.class,
 			MethodArgumentTypeMismatchException.class })
 	public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
-		return respond(HttpStatus.BAD_REQUEST, ex.getMessage(), request, "Bad Request");
+		return respond(HttpStatus.BAD_REQUEST, safeMessage(ex), request, "Bad Request");
+	}
+
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex,
+			HttpServletRequest request) {
+		return respond(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'", request,
+				"Bad Request");
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
-		return respond(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request, "Internal Server Error");
+		// never leak exception internals that could contain secrets or stack details
+		return respond(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request,
+				"Internal Server Error");
+	}
+
+	/** A message whose internals are safe to echo; never exposes exception stack internals. */
+	private String safeMessage(Exception ex) {
+		String message = ex.getMessage();
+		if (message == null || message.isBlank() || !message.chars().allMatch(c -> c >= 0x20 && c != 0x7f)) {
+			return "Bad Request";
+		}
+		return message.length() > 500 ? message.substring(0, 500) : message;
 	}
 
 	private ResponseEntity<ErrorResponse> respond(HttpStatus status, String message, HttpServletRequest request,

@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Activity, BarChart3, Crosshair, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Activity, BarChart3, Crosshair, Menu, PanelLeftClose, PanelLeftOpen, RotateCcw } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 import { LogoMark } from './components/Landing'
@@ -21,10 +21,23 @@ const TAB_META: Record<TabId, { label: string; badge: string; icon: typeof Activ
 
 const LS_KEY = 'cso.sidebar.collapsed'
 
+const TAB_FROM_HASH: Record<string, TabId | undefined> = {
+	'#/lab/simulate': 'simulate',
+	'#/lab/optimize': 'optimize',
+	'#/lab/compare': 'compare',
+}
+
+function parseHash(hash: string): { view: 'landing' | 'lab'; tab: TabId } {
+	const clean = hash || '#/'
+	if (clean.startsWith('#/lab')) {
+		return { view: 'lab', tab: TAB_FROM_HASH[clean] ?? 'simulate' }
+	}
+	return { view: 'landing', tab: 'simulate' }
+}
+
 export default function App() {
 	const w = useWorkspace()
-	const [tab, setTab] = useState<TabId>('simulate')
-	const [view, setView] = useState<'landing' | 'lab'>('landing')
+	const [route, setRoute] = useState(() => parseHash(window.location.hash))
 	const [drawerOpen, setDrawerOpen] = useState(false)
 	const [collapsed, setCollapsed] = useState(() => {
 		try {
@@ -34,9 +47,25 @@ export default function App() {
 		}
 	})
 
+	const { view, tab } = route
+
+	useEffect(() => {
+		const onHash = () => setRoute(parseHash(window.location.hash))
+		window.addEventListener('hashchange', onHash)
+		return () => window.removeEventListener('hashchange', onHash)
+	}, [])
+
 	useEffect(() => {
 		if (w.error) toast.error(w.error, { id: 'workspace-error' })
 	}, [w.error])
+
+	const navigate = useCallback((next: { view: 'landing' | 'lab'; tab?: TabId }) => {
+		let hash = next.view === 'landing' ? '#/' : '#/lab'
+		if (next.view === 'lab' && next.tab) hash = `#/lab/${next.tab}`
+		if (window.location.hash !== hash) window.location.hash = hash
+		setRoute(parseHash(hash))
+		setDrawerOpen(false)
+	}, [])
 
 	const toggleSidebar = () => {
 		const next = !collapsed
@@ -48,11 +77,14 @@ export default function App() {
 		}
 	}
 
-	const tabOrder: TabId[] = ['simulate', 'optimize', 'compare']
-	const openTab = (id: TabId) => {
-		setTab(id)
-		setDrawerOpen(false)
+	const openTab = (id: TabId) => navigate({ view: 'lab', tab: id })
+
+	const resetWorkspace = () => {
+		w.resetWorkspace()
+		toast.success('Workspace reset to defaults', { id: 'workspace-reset' })
 	}
+
+	const tabOrder: TabId[] = ['simulate', 'optimize', 'compare']
 
 	return (
 		<div className="app">
@@ -80,7 +112,7 @@ export default function App() {
 						exit={{ opacity: 0, y: -8 }}
 						transition={{ duration: 0.24, ease: 'easeOut' }}
 					>
-						<LandingPage onEnter={() => setView('lab')} />
+						<LandingPage onEnter={() => navigate({ view: 'lab', tab: 'simulate' })} />
 					</motion.div>
 				) : (
 					<motion.div
@@ -93,7 +125,7 @@ export default function App() {
 						<div className="workspace">
 							{drawerOpen && <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
 							<aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${drawerOpen ? 'sidebar--open' : ''}`}>
-								<button className="brand" onClick={() => setView('landing')} title="Back to landing">
+								<button className="brand" onClick={() => navigate({ view: 'landing' })} title="Back to landing">
 									<span className="brand__mark"><LogoMark size={22} /></span>
 									<span className="brand__text">
 										<span className="brand__name">Control Lab</span>
@@ -123,6 +155,11 @@ export default function App() {
 										{collapsed ? <PanelLeftOpen size={16} strokeWidth={1.8} /> : <PanelLeftClose size={16} strokeWidth={1.8} />}
 									</span>
 									<span className="nav__label">{collapsed ? '' : 'Collapse'}</span>
+								</button>
+
+								<button className="sidebar-toggle" onClick={resetWorkspace} title="Reset workspace to defaults">
+									<span className="nav__icon"><RotateCcw size={16} strokeWidth={1.8} /></span>
+									<span className="nav__label">{collapsed ? '' : 'Reset'}</span>
 								</button>
 							</aside>
 

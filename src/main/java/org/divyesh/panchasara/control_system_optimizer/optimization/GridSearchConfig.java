@@ -23,7 +23,7 @@ public record GridSearchConfig(int[] resolution, boolean includeCostSurface) {
 			}
 			cells *= r;
 			if (cells > 40_000L) {
-				throw new IllegalArgumentException("Grid search is too large for a cost surface (max 40k cells)");
+				throw new IllegalArgumentException("Grid search is too large (max " + cells + " cells requested, limit 40k)");
 			}
 		}
 	}

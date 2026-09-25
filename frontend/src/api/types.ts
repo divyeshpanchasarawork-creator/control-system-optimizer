@@ -17,10 +17,12 @@ export interface ControllerSpec {
 	type: ControllerType
 	gain: number[]
 	tracking: boolean
+	feedforward?: boolean
 }
 
 export interface CreationSpec {
 	tracking?: boolean
+	feedforward?: boolean
 }
 
 export interface SimulationConfig {
@@ -30,6 +32,7 @@ export interface SimulationConfig {
 	endTime?: number
 	timeStep?: number
 	settlingBand?: number
+	saturation?: number
 }
 
 export interface TrajectoryPointDto {
@@ -40,7 +43,7 @@ export interface TrajectoryPointDto {
 }
 
 export interface SettlingBandTime {
-	band: number
+	bandPercent: number
 	time: number | null
 }
 
@@ -54,6 +57,8 @@ export interface MetricsResponse {
 	controlEffort: number
 	maxControl: number
 	settlingTimeByBand?: SettlingBandTime[]
+	xSS?: number | null
+	eSS?: number | null
 }
 
 export interface SimulationResponse {
@@ -97,12 +102,16 @@ export interface ObjectiveSpec {
 	controlEffortWeight: number
 	settlingTimeWeight: number
 	overshootWeight: number
+	steadyStateErrorWeight?: number
+	steadyStateErrorScale?: number
 }
 
 export interface ConstraintSpec {
 	maxControl?: number
 	maxOvershoot?: number
 	maxSettlingTime?: number
+	maxSteadyStateError?: number
+	maxControlEnergy?: number
 }
 
 export interface SimulationRequest {
@@ -118,7 +127,7 @@ export interface StabilityRequest {
 
 export interface ConvergencePoint {
 	generation: number
-	bestCost: number
+	bestCost: number | null
 }
 
 export interface OptimizationRequest {
@@ -133,7 +142,7 @@ export interface OptimizationRequest {
 }
 
 export interface ObjectiveTerm {
-	key: 'trackingError' | 'controlEffort' | 'settlingTime' | 'overshoot'
+	key: 'trackingError' | 'controlEffort' | 'settlingTime' | 'overshoot' | 'steadyStateError'
 	name: string
 	raw: number
 	reference: number
@@ -180,4 +189,5 @@ export interface OptimizationResponse {
 	objectiveBreakdown: ObjectiveBreakdown | null
 	constraints: ConstraintReport[] | null
 	optimizerConfig: Record<string, unknown>
+	infeasibleReason?: string | null
 }

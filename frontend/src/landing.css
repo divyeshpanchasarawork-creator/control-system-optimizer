@@ -72,7 +72,7 @@
 }
 
 /* ---------- Buttons ---------- */
-.btn {
+.landing .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -91,32 +91,32 @@
   transition: background var(--dur), border-color var(--dur), transform var(--dur) var(--ease);
 }
 
-.btn:hover {
+.landing .btn:hover {
   transform: translateY(-1px);
 }
 
-.btn--primary {
+.landing .btn--primary {
   background: var(--blue);
   color: #fff;
   box-shadow: 0 4px 12px -4px rgba(10, 132, 255, 0.5);
 }
 
-.btn--primary:hover {
+.landing .btn--primary:hover {
   background: var(--blue-2);
 }
 
-.btn--ghost {
+.landing .btn--ghost {
   border-color: var(--border-strong);
   background: var(--surface);
   color: var(--text);
 }
 
-.btn--ghost:hover {
+.landing .btn--ghost:hover {
   border-color: #b6bac7;
   background: var(--surface-2);
 }
 
-.btn--lg {
+.landing .btn--lg {
   padding: 14px 28px;
   font-size: 15px;
 }

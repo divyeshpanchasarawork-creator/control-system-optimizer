@@ -23,5 +23,6 @@ public record OptimizationResponse(
 		Map<String, Object> optimizerConfig,
 		ObjectiveBreakdownResponse objectiveBreakdown,
 		List<ConstraintReportResponse> constraints,
-		MetricSurfacesResponse metricSurfaces) {
+		MetricSurfacesResponse metricSurfaces,
+		String infeasibleReason) {
 }

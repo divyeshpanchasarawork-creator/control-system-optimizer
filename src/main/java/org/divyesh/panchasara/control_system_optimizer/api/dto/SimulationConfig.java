@@ -15,11 +15,15 @@ public record SimulationConfig(
 		Double startTime,
 		Double endTime,
 		Double timeStep,
-		Double settlingBand) {
+		Double settlingBand,
+		Double saturation) {
 
 	public SimulationConfig {
 		if (settlingBand != null && (settlingBand <= 0.0 || settlingBand > 100.0)) {
 			throw new IllegalArgumentException("settlingBand must be in (0, 100] (percent)");
+		}
+		if (saturation != null && !(saturation > 0.0)) {
+			throw new IllegalArgumentException("saturation must be a positive force limit or null (disabled)");
 		}
 	}
 }

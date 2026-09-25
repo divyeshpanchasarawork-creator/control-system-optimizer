@@ -16,11 +16,15 @@ public record ObjectiveBreakdownResponse(
 		List<ObjectiveTermResponse> terms) {
 
 	public static ObjectiveBreakdownResponse from(ObjectiveBreakdown b) {
-		return new ObjectiveBreakdownResponse(b.normalized(), b.total(), List.of(
-				ObjectiveTermResponse.of("trackingError", "Tracking error", b.trackingError(), b.total()),
-				ObjectiveTermResponse.of("controlEffort", "Control energy", b.controlEffort(), b.total()),
-				ObjectiveTermResponse.of("settlingTime", "Settling time", b.settlingTime(), b.total()),
-				ObjectiveTermResponse.of("overshoot", "Overshoot", b.overshoot(), b.total())));
+		List<ObjectiveTermResponse> terms = new java.util.ArrayList<>(5);
+		terms.add(ObjectiveTermResponse.of("trackingError", "Tracking error", b.trackingError(), b.total()));
+		terms.add(ObjectiveTermResponse.of("controlEffort", "Control energy", b.controlEffort(), b.total()));
+		terms.add(ObjectiveTermResponse.of("settlingTime", "Settling time", b.settlingTime(), b.total()));
+		terms.add(ObjectiveTermResponse.of("overshoot", "Overshoot", b.overshoot(), b.total()));
+		if (b.steadyStateError() != null) {
+			terms.add(ObjectiveTermResponse.of("steadyStateError", "Steady-state error", b.steadyStateError(), b.total()));
+		}
+		return new ObjectiveBreakdownResponse(b.normalized(), b.total(), terms);
 	}
 
 	public record ObjectiveTermResponse(

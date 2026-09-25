@@ -18,7 +18,9 @@ public record MetricsResponse(
 		Double settlingTime,
 		double controlEffort,
 		double maxControl,
-		List<SettlingBandDto> settlingTimeByBand) {
+		List<SettlingBandDto> settlingTimeByBand,
+		Double xSS,
+		Double eSS) {
 
 	public static MetricsResponse from(PerformanceMetrics m) {
 		return from(m, List.of());
@@ -30,6 +32,15 @@ public record MetricsResponse(
 	 * reference) map to {@code null}.
 	 */
 	public static MetricsResponse from(PerformanceMetrics m, List<SettlingBandResult> settlingBands) {
+		return from(m, settlingBands, null, null);
+	}
+
+	/**
+	 * @param xSS analytic steady-state position (nullable)
+	 * @param eSS analytic steady-state tracking error magnitude (nullable)
+	 */
+	public static MetricsResponse from(PerformanceMetrics m, List<SettlingBandResult> settlingBands, Double xSS,
+			Double eSS) {
 		List<SettlingBandDto> bands = settlingBands.stream()
 				.map(s -> new SettlingBandDto(s.bandPercent(), s.settled() ? s.settlingTime() : null))
 				.toList();
@@ -42,6 +53,8 @@ public record MetricsResponse(
 				Double.isFinite(m.settlingTime()) ? m.settlingTime() : null,
 				m.controlEffort(),
 				m.maxControl(),
-				bands);
+				bands,
+				Double.isFinite(xSS) ? xSS : null,
+				Double.isFinite(eSS) ? eSS : null);
 	}
 }

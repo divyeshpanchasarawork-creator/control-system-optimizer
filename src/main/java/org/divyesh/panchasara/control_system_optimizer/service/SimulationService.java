@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceAnalyzer;
 import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceMetrics;
+import org.divyesh.panchasara.control_system_optimizer.analysis.SteadyState;
+import org.divyesh.panchasara.control_system_optimizer.analysis.SteadyStateResolver;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.ControllerSpec;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.MetricsResponse;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.SimulationConfig;
@@ -43,23 +45,38 @@ public class SimulationService {
 
 	public SimulationResponse simulate(SimulationRequest request) {
 		DynamicSystem system = registry.create(request.system().type(), request.system().parameters());
-		Controller controller = buildController(request.controller(), system.dimension());
+		Controller controller = buildController(request.controller(), system);
 		SimulationSettings settings = toSettings(request.simulation(), system.dimension());
 
 		Trajectory trajectory = simulator.simulate(new SimulationSetup(system, controller,
-				settings.initialState(), settings.reference(), settings.startTime(), settings.endTime(), settings.timeStep()));
+				settings.initialState(), settings.reference(), settings.startTime(), settings.endTime(),
+				settings.timeStep(), settings.saturation()));
 		PerformanceMetrics metrics = performanceAnalyzer.analyze(trajectory, settings.settlingBandFraction());
 		var settlingBands = performanceAnalyzer.settlingBands(trajectory, PerformanceAnalyzer.DISPLAY_BANDS_PERCENT);
+		SteadyState steady = steadyState(system, controller, settings.reference(), request);
 
 		List<TrajectoryPointDto> points = trajectory.points().stream()
 				.map(p -> new TrajectoryPointDto(p.time(), p.state(), p.control(), p.reference()))
 				.toList();
 
 		return new SimulationResponse(system.systemType(), system.parameters(), request.controller(),
-				MetricsResponse.from(metrics, settlingBands), points);
+				MetricsResponse.from(metrics, settlingBands, steady.xSS(), steady.eSS()), points);
 	}
 
-	Controller buildController(ControllerSpec spec, int dimension) {
+	private SteadyState steadyState(DynamicSystem system, Controller controller,
+			double[] reference, SimulationRequest request) {
+		ControllerSpec spec = request.controller();
+		double[] gains = spec == null ? null : spec.gain();
+		if (controller == null || gains == null || gains.length != system.dimension() || reference == null) {
+			return SteadyState.undefined();
+		}
+		boolean tracking = Boolean.TRUE.equals(spec.tracking());
+		boolean feedforward = Boolean.TRUE.equals(spec.feedforward());
+		double springConstant = system.parameters().getOrDefault("springConstant", Double.NaN);
+		return SteadyStateResolver.resolve(gains, springConstant, reference[0], tracking, feedforward);
+	}
+
+	Controller buildController(ControllerSpec spec, DynamicSystem system) {
 		if (spec == null) {
 			return null;
 		}
@@ -67,11 +84,15 @@ public class SimulationService {
 			throw new IllegalArgumentException("Unsupported controller type '" + spec.type() + "' (supported: STATE_FEEDBACK)");
 		}
 		double[] gains = spec.gain();
-		if (gains == null || gains.length != dimension) {
+		if (gains == null || gains.length != system.dimension()) {
 			throw new IllegalArgumentException(
-					"State feedback controller requires " + dimension + " gains");
+					"State feedback controller requires " + system.dimension() + " gains");
 		}
-		return StateFeedbackController.of(gains, spec.tracking());
+		double springConstant = system.parameters().getOrDefault("springConstant", Double.NaN);
+		double feedforwardForce = Boolean.TRUE.equals(spec.feedforward()) && Double.isFinite(springConstant)
+				? springConstant
+				: 0.0;
+		return StateFeedbackController.of(gains, spec.tracking(), feedforwardForce);
 	}
 
 	SimulationSettings toSettings(SimulationConfig config, int dimension) {
@@ -87,6 +108,7 @@ public class SimulationService {
 		double endTime = config.endTime() == null ? properties.simulation().defaultEndTime() : config.endTime();
 		double timeStep = config.timeStep() == null ? properties.simulation().defaultTimeStep() : config.timeStep();
 		double settlingBandFraction = (config.settlingBand() == null ? 2.0 : config.settlingBand()) / 100.0;
-		return new SimulationSettings(state, ref, startTime, endTime, timeStep, settlingBandFraction);
+		double saturation = config.saturation() == null ? 0.0 : config.saturation();
+		return new SimulationSettings(state, ref, startTime, endTime, timeStep, settlingBandFraction, saturation);
 	}
 }

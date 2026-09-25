@@ -18,12 +18,23 @@ public record DifferentialEvolutionConfig(
 		double crossoverRate,
 		long seed) {
 
+	/** Hard upper bound on the population size (DoS guard). */
+	public static final int MAX_POPULATION = 200;
+	/** Hard upper bound on the generation count (DoS guard). */
+	public static final int MAX_ITERATIONS = 3000;
+
 	public DifferentialEvolutionConfig {
 		if (populationSize != 0 && populationSize < 4) {
 			throw new IllegalArgumentException("populationSize must be 0 (default) or >= 4");
 		}
+		if (populationSize > MAX_POPULATION) {
+			throw new IllegalArgumentException("populationSize cannot exceed " + MAX_POPULATION);
+		}
 		if (maxIterations <= 0) {
 			throw new IllegalArgumentException("maxIterations must be positive");
+		}
+		if (maxIterations > MAX_ITERATIONS) {
+			throw new IllegalArgumentException("maxIterations cannot exceed " + MAX_ITERATIONS);
 		}
 		if (crossoverRate < 0.0 || crossoverRate > 1.0) {
 			throw new IllegalArgumentException("crossoverRate must be in [0,1]");
