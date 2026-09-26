@@ -150,7 +150,7 @@ export function SimulateTab() {
 								else w.update({ manualGain: [w.manualGain[0], v] })
 							}} />
 					</div>
-					<div style={{ marginTop: 12 }} className="row row--between">
+					<div style={{ marginTop: "var(--space-3)" }} className="row row--between">
 						<CheckField label="Reference tracking" checked={w.tracking} onChange={(v) => w.update({ tracking: v })} hint={LEARNING.tracking} />
 						<span className="mono faint">
 							{w.tracking
@@ -158,7 +158,7 @@ export function SimulateTab() {
 								: `u = −${fmt(gain[0], 3)}·x₁ − ${fmt(gain[1], 3)}·x₂`}
 						</span>
 					</div>
-					<div style={{ marginTop: 8 }} className="row">
+					<div style={{ marginTop: "var(--space-2)" }} className="row">
 						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
 							<input type="checkbox" checked={w.feedforward} disabled={!w.tracking} onChange={(e) => w.update({ feedforward: e.target.checked })} />
 							<span>Reference feedforward</span>
@@ -215,7 +215,7 @@ export function SimulateTab() {
 									<span key={i} className="mono">λ{i + 1} = {lam.imag === 0 ? fmt(lam.real, 3) : `${fmt(lam.real, 3)} ${lam.imag >= 0 ? '+' : '−'} ${fmt(Math.abs(lam.imag), 3)}i`}</span>
 								))}
 							</div>
-							<div style={{ marginTop: 8 }} className="row">
+							<div style={{ marginTop: "var(--space-2)" }} className="row">
 								<span className="faint">Stability:</span>{' '}
 								{w.stability.stable ? <span>Stable ✓ · poles in the left half-plane</span> : <span>Unstable ✗ · increase Kp or Kd</span>}
 							</div>
@@ -309,7 +309,7 @@ export function SimulateTab() {
 			)}
 
 			<Panel title="Settling time across bands">
-				<p className="faint" style={{ marginTop: 0 }}>The same run measured against four tolerance bands. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
+				<p className="faint reset-top">The same run measured against four tolerance bands. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
 				{metrics?.settlingTimeByBand?.length ? (
 					<table className="data">
 						<thead>
@@ -333,7 +333,7 @@ export function SimulateTab() {
 			</Panel>
 
 			<Panel title="Settling-time band">
-				<p className="faint" style={{ marginTop: 0 }}>Settling time is measured against a tolerance band around the reference. Raise it for a more forgiving definition.</p>
+				<p className="faint reset-top">Settling time is measured against a tolerance band around the reference. Raise it for a more forgiving definition.</p>
 				<div className="radio-list">
 					{SETTLING_OPTIONS.map((o) => (
 						<RadioChip key={o.value} label={o.label} value={o.value} active={String(settlingBand) === o.value}

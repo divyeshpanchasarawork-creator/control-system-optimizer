@@ -13,12 +13,6 @@
   overflow: hidden;
 }
 
-.app-shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 28px 56px;
-}
-
 /* ---------- Sidebar ---------- */
 .sidebar {
   width: var(--sidebar-w);
@@ -822,7 +816,7 @@
   font-weight: var(--weight-strong);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .weight-bar__track {
@@ -866,7 +860,7 @@
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .gain-card__desc {
@@ -957,7 +951,7 @@
 }
 
 .learn__body li {
-  margin: 4px 0;
+  margin: var(--space-1) 0;
 }
 
 .learn__body code,
@@ -1042,7 +1036,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .field__label {
@@ -1416,15 +1410,29 @@
   display: inline-block;
 }
 
+/* ---------- Text utilities ---------- */
+.faint {
+  color: var(--text-2);
+}
+
+/* Margin resets for prose that must sit flush against its neighbour */
+.reset-top {
+  margin-top: 0;
+}
+
+.reset-bottom {
+  margin-bottom: 0;
+}
+
 /* ---------- Layout utilities ---------- */
 .spacer {
-  margin: 12px 0;
+  margin: var(--space-3) 0;
 }
 
 .divider {
   height: 1px;
   background: var(--border);
-  margin: 16px 0;
+  margin: var(--space-4) 0;
 }
 
 .row {

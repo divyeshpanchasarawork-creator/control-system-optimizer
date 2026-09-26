@@ -142,7 +142,7 @@ const boundaryHits: string[] = []
 					/>
 					{w.optimizerType === 'GRID_SEARCH' ? (
 						<>
-							<div style={{ marginTop: 12 }} className="form-grid">
+							<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
 								<NumberField label="Grid resolution (per dim.)" hint="Samples per gain dimension. Total evaluations = resolution². 41 → 1,681 simulations, 101 → ~10,000."
 									value={w.gridResolution} min={2} max={101} step={1} onChange={(v) => w.update({ gridResolution: Math.round(v) })} />
 								<CheckField label="Return cost surface (2-D grid)" checked={w.includeCostSurface}
@@ -152,7 +152,7 @@ const boundaryHits: string[] = []
 						</>
 					) : (
 						<>
-							<div style={{ marginTop: 12 }} className="form-grid">
+							<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
 								<NumberField label="Population size" hint="Number of candidate gain vectors evolved per generation. Larger = better coverage, more cost per step."
 									value={w.populationSize} min={4} step={2} onChange={(v) => w.update({ populationSize: Math.round(v) })} />
 								<NumberField label="Max iterations" hint="Generations the population is evolved. Stop early when convergence flattens."
@@ -173,7 +173,7 @@ const boundaryHits: string[] = []
 			<section>
 				<p className="section-label">Step 3 · Objective</p>
 				<Panel>
-					<p className="faint" style={{ marginTop: 0 }}>{LEARNING.formula}</p>
+					<p className="faint reset-top">{LEARNING.formula}</p>
 					<div className="preset-row">
 						{PRESETS.map((p) => (
 							<button key={p.key} className={`preset-chip ${activePreset === p.key ? 'active' : ''}`} onClick={() => handlePreset(p.key)}>
@@ -182,8 +182,8 @@ const boundaryHits: string[] = []
 						))}
 					</div>
 					<ObjectiveBars weights={weights} onChange={handleWeight} />
-					<p className="faint" style={{ marginBottom: 0, marginTop: 12 }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
-					<div style={{ marginTop: 12 }} className="row">
+					<p className="faint" style={{ marginBottom: 0, marginTop: "var(--space-3)" }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
+					<div style={{ marginTop: "var(--space-3)" }} className="row">
 						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
 							<input type="checkbox" checked={w.steadyStateErrorEnabled} disabled={!w.tracking} onChange={(e) => w.update({ steadyStateErrorEnabled: e.target.checked })} />
 							<span>Include steady-state error term</span>
@@ -202,7 +202,7 @@ const boundaryHits: string[] = []
 					<CheckField label="Enforce constraints during search" checked={w.constraintsEnabled}
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
 					{w.constraintsEnabled && (
-						<div style={{ marginTop: 12 }} className="form-grid">
+						<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
 							<NumberField label="Peak force" unit="force" hint="Ceiling on the peak actuator command. Candidates exceeding it are infeasible."
 								value={Number.isFinite(w.maxControl) ? w.maxControl : 0} min={0} step={1} onChange={(v) => w.update({ maxControl: v })} />
 							<NumberField label="Max overshoot" unit="%" hint="Ceiling on overshoot percentage."
@@ -282,7 +282,7 @@ const boundaryHits: string[] = []
 							title="Closest candidate · and what stopped it"
 							right={<Learn title="Why the search failed"><p>Every candidate costs +∞ once it breaks a limit, so the search ranks them by the worst relative miss instead. The candidate below came nearest, and these are the limits it broke. Relax one of them, or widen the gain range, and rerun.</p></Learn>}
 						>
-							<p className="faint" style={{ marginTop: 0 }}>
+							<p className="faint reset-top">
 								Nearest candidate K = [{nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]
 								{nearMiss.metrics && (
 									<>
@@ -358,13 +358,13 @@ const boundaryHits: string[] = []
 						</div>
 
 						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (
-							<div style={{ marginTop: 12 }} className="btn-row">
+							<div style={{ marginTop: "var(--space-3)" }} className="btn-row">
 								<button className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
 							</div>
 						)}
 
 						{w.optimizerType === 'DIFFERENTIAL_EVOLUTION' && (
-							<p className="faint" style={{ marginBottom: 0 }}>
+							<p className="faint reset-bottom">
 								Seeded search explores the box by sampling: this K is the best of that sample, not the box-wide optimum. Run grid search at the same bounds and compare its best J before calling either result optimal.
 							</p>
 						)}

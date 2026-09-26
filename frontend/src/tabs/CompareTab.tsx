@@ -168,17 +168,17 @@ export function CompareTab() {
 					</button>
 				</div>
 				{pending && (
-					<div className="row" style={{ marginTop: 12 }}>
+					<div className="row" style={{ marginTop: "var(--space-3)" }}>
 						<BusyNote large>Running both controllers…</BusyNote>
 					</div>
 				)}
 				{!ready && (
-					<div style={{ marginTop: 12 }}>
+					<div style={{ marginTop: "var(--space-3)" }}>
 						<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
 					</div>
 				)}
 				{ready && !pending && ran && (
-					<div className="row" style={{ marginTop: 12 }}>
+					<div className="row" style={{ marginTop: "var(--space-3)" }}>
 						<span className="faint">Both runs match the current model. Edit any input and they refresh themselves.</span>
 					</div>
 				)}
@@ -227,7 +227,7 @@ export function CompareTab() {
 				<div className="stack">
 					{opt ? (
 						<>
-							<p className="faint" style={{ marginTop: 0 }}>
+							<p className="faint reset-top">
 								The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
 								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> The measured deltas appear as soon as the comparison finishes.</>}
 							</p>
@@ -287,7 +287,7 @@ function GroupRow({ group, manual, optimized }: {
 	return (
 		<>
 			<tr>
-				<td colSpan={4} style={{ textAlign: 'left', fontWeight: 700, color: 'var(--text-2)', paddingTop: 12 }}>{group.label}</td>
+				<td colSpan={4} style={{ textAlign: 'left', fontWeight: 700, color: 'var(--text-2)', paddingTop: "var(--space-3)" }}>{group.label}</td>
 			</tr>
 			{group.keys.map((k) => {
 				const m = metricValue(manual, k.key)

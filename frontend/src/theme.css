@@ -18,21 +18,32 @@
   --red: #d70015;
   --red-soft: #ffecee;
 
+  /* Chart series: tokenised so plots and the surrounding UI cannot drift apart */
+  --chart-green: #32d74b;
+  --chart-violet: #7c3aed;
+  --chart-cyan: #0891b2;
+  --chart-pink: #db2777;
+  --chart-olive: #65a30d;
+  /* Chart chrome */
+  --chart-axis: #a3a3ad;
+  --chart-grid: #e6e6ec;
+  --chart-zero: #c8c8d0;
+  --chart-hatch: #f4f4f7;
+  --chart-hatch-2: #ececf1;
+
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
 
-  /* Golden ratio scale: every radius/space/size in the system is a power of phi off a 14px body cap */
-  --phi: 1.618;
+  /* Radii follow a golden-ratio ladder off the 14px body cap (14 -> 22 -> 36) */
   --radius: 22px;
   --radius-sm: 14px;
-  --radius-lg: 34px;
 
-  /* phi-spaced step ladder (14 -> 22 -> 36 -> 58 -> 94) */
-  --space-1: 6px;
-  --space-2: 10px;
-  --space-3: 16px;
-  --space-4: 26px;
-  --space-5: 42px;
+  /* Spacing is a 4px rhythm, matching the gap sizes the workspace actually uses */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
 
   --mono: "SF Mono", ui-monospace, "Roboto Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* Apple-style system stack, SF Pro first */
@@ -43,20 +54,14 @@
   --sidebar-w: 264px;
   --sidebar-w-collapsed: 64px;
   --header-h: 60px;
-  --header-w: 28px;
 
   --ease: cubic-bezier(0.3, 0.8, 0.3, 1);
   --dur: 180ms;
-
-  --tab-blue: #0a84ff;
-  --tab-amber: #c77800;
-  --tab-emerald: #1a8c4d;
 
   /* Type scale: each step is a phi multiple of the body cap (14 -> 22 -> 36) */
   --fs-display: clamp(36px, 5.5vw, 58px);
   --fs-hero: clamp(22px, 3.2vw, 36px);
   --fs-title: 22px;
-  --fs-heading: 16px;
   --fs-body: 14px;
   --fs-caption: 12px;
   --fs-micro: 11px;
@@ -105,10 +110,6 @@ h4 {
   font-family: var(--mono);
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
-}
-
-.faint {
-  color: var(--text-2);
 }
 
 ::selection {
