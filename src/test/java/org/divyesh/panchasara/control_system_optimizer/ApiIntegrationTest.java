@@ -1,6 +1,11 @@
 package org.divyesh.panchasara.control_system_optimizer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -254,6 +259,83 @@ class ApiIntegrationTest {
 				.andExpect(jsonPath("$.feasible").value(false));
 	}
 
+	@Test
+	void infeasibleRunReportsTheCandidateItCameClosestTo() throws Exception {
+		// The shipped defaults against the shipped gain range. A proportional
+		// controller leaves a standing error of kp/(10+kp), so the 0.05 limit would
+		// need kp >= 190 while the range stops at 40, and that same standing error
+		// keeps the response outside the 2% settling band. Every candidate misses
+		// both, so the run has to say so precisely rather than only that it failed.
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[40,20]},
+				"optimizer":{"type":"GRID_SEARCH","resolution":[11,6]},"objective":{},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":10,"timeStep":0.05},
+				"constraints":{"maxControl":50,"maxOvershoot":10,"maxSettlingTime":5,
+					"maxSteadyStateError":0.05,"maxControlEnergy":40}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.feasible").value(false))
+				.andExpect(jsonPath("$.bestGain").doesNotExist())
+				// the point of the whole exercise: a rejected run still explains itself
+				.andExpect(jsonPath("$.nearestMiss.gain.length()").value(2))
+				.andExpect(jsonPath("$.nearestMiss.metrics").exists())
+				.andExpect(jsonPath("$.nearestMiss.violatedConstraints[*].id",
+						hasItems("max-steady-state-error", "max-settling-time")))
+				// only limits that actually failed, never the ones that passed
+				.andExpect(jsonPath("$.nearestMiss.violatedConstraints[*].id", not(hasItem("max-control"))))
+				.andExpect(jsonPath("$.infeasibleReason", containsString("Closest candidate K = ")))
+				.andExpect(jsonPath("$.infeasibleReason", containsString("Steady-state error")));
+	}
+
+	@Test
+	void feasibleRunCarriesNoNearestMiss() throws Exception {
+		// reference feedforward cancels the static load, so the response settles
+		// and a reachable limit set is satisfiable
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","feedforward":true},
+				"gainBounds":{"lower":[0,0],"upper":[40,20]},
+				"optimizer":{"type":"GRID_SEARCH","resolution":[7,6]},"objective":{},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":10,"timeStep":0.05},
+				"constraints":{"maxControl":50,"maxOvershoot":10,"maxSettlingTime":5,
+					"maxSteadyStateError":0.05,"maxControlEnergy":1200}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.feasible").value(true))
+				.andExpect(jsonPath("$.nearestMiss", nullValue()));
+	}
+
+	@Test
+	void infeasibleRunNamesTheSearchedRangeInItsReason() throws Exception {
+		// kp=0 is in range and commands no force at all, so a single tight peak
+		// limit is satisfiable; the settling limit is what closes the last door,
+		// since a mass that never moves never enters the band
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[0,0],"upper":[30,10]},
+								"optimizer":{"type":"GRID_SEARCH","resolution":[11,6]},"objective":{},
+								"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":0.05},
+								"constraints":{"maxControl":0.0001,"maxOvershoot":0.0001,"maxSettlingTime":0.0001}}
+								""".formatted(SYSTEM)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.feasible").value(false))
+				.andExpect(jsonPath("$.infeasibleReason", containsString("kp in [0, 30]")))
+				.andExpect(jsonPath("$.infeasibleReason", containsString("kd in [0, 10]")))
+				// the reason names the limit that actually failed, and stays silent
+				// about the two the closest candidate passed
+				.andExpect(jsonPath("$.infeasibleReason", containsString("was never reached")))
+				.andExpect(jsonPath("$.infeasibleReason", not(containsString("Peak force"))))
+				.andExpect(jsonPath("$.infeasibleReason", not(containsString("Max overshoot"))))
+				// kp=0 commands no force and never overshoots, so only the settling
+				// limit is out of reach for the closest candidate
+				.andExpect(jsonPath("$.nearestMiss.violatedConstraints.length()").value(1))
+				.andExpect(jsonPath("$.nearestMiss.violatedConstraints[0].id").value("max-settling-time"))
+				.andExpect(jsonPath("$.nearestMiss.violatedConstraints[0].achieved").doesNotExist());
+	}
+
 	private String withoutElapsedMillis(String response) {
 		return response.replaceAll("\"elapsedMillis\":\\d+", "\"elapsedMillis\":0");
 	}
@@ -270,6 +352,102 @@ class ApiIntegrationTest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(400))
 				.andExpect(jsonPath("$.message").isNotEmpty());
+	}
+
+	@Test
+	void negativeTimestepIsRejectedInsteadOfHanging() throws Exception {
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":-0.05}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("timeStep must be a finite positive number")));
+	}
+
+	@Test
+	void rejectedRecordMessageIsNotWrappedInParserNoise() throws Exception {
+		// The client should see the reason, not "Cannot construct instance of ...".
+		mockMvc.perform(post("/api/optimization")
+						.contentType(MediaType.APPLICATION_JSON).content("""
+								{%s,"controller":{"type":"STATE_FEEDBACK"},"gainBounds":{"lower":[5,0],"upper":[1,10]},
+								"optimizer":{"type":"GRID_SEARCH","resolution":[3,3]},"objective":{},%s}
+								""".formatted(SYSTEM, SIMULATION)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("Every gain lower bound must be strictly below its upper bound")))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Cannot construct instance"))));
+	}
+
+	@Test
+	void zeroAndNonFiniteTimestepsAreRejected() throws Exception {
+		for (String timeStep : new String[] { "0", "1e-9", "1e400" }) {
+			String body = """
+					{%s,"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+					"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":%s}}
+					""".formatted(SYSTEM, timeStep);
+			mockMvc.perform(post("/api/simulations")
+							.contentType(MediaType.APPLICATION_JSON).content(body))
+					.andExpect(status().isBadRequest());
+		}
+	}
+
+	@Test
+	void endTimeBeforeStartTimeIsRejected() throws Exception {
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"startTime":5,"endTime":1,"timeStep":0.05}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("endTime")));
+	}
+
+	@Test
+	void nonFiniteStateIsRejected() throws Exception {
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+				"simulation":{"initialState":[1e400,0],"reference":[1,0],"endTime":5,"timeStep":0.05}}
+				""".formatted(SYSTEM);
+		mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void divergingGainsYield422RatherThanInvalidJson() throws Exception {
+		// Gains this large make RK4 leave the finite range inside the horizon. The
+		// response must be a clean error, never a body containing a bare NaN token.
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","gain":[1e300,0],"tracking":true},
+				"simulation":{"initialState":[0,0],"reference":[1,0],"endTime":5,"timeStep":0.05}}
+				""".formatted(SYSTEM);
+		MvcResult result = mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isUnprocessableEntity())
+				.andReturn();
+		assertThat(result.getResponse().getContentAsString()).doesNotContain("NaN", "Infinity");
+	}
+
+	@Test
+	void simulationMetricsAreJsonSafe() throws Exception {
+		String body = """
+				{%s,"controller":{"type":"STATE_FEEDBACK","gain":[10,5]},
+				"simulation":{"initialState":[0,0],"reference":[0,0],"endTime":2,"timeStep":0.05}}
+				""".formatted(SYSTEM);
+		MvcResult result = mockMvc.perform(post("/api/simulations")
+						.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andReturn();
+		String json = result.getResponse().getContentAsString();
+		assertThat(json).doesNotContain("NaN", "Infinity");
+		// A zero reference makes the 2% band zero-width, so settling is undefined.
+		assertThat(json).contains("\"settlingTime\":null");
 	}
 
 	private String content(String body) throws Exception {

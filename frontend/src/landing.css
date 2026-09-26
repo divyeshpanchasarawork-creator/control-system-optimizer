@@ -88,11 +88,7 @@
   background: var(--surface);
   color: var(--text);
   letter-spacing: var(--tracking-label);
-  transition: background var(--dur), border-color var(--dur), transform var(--dur) var(--ease);
-}
-
-.landing .btn:hover {
-  transform: translateY(-1px);
+  transition: background var(--dur), border-color var(--dur);
 }
 
 .landing .btn--primary {

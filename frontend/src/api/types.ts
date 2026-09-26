@@ -48,14 +48,18 @@ export interface SettlingBandTime {
 }
 
 export interface MetricsResponse {
-	finalError: number
-	maxAbsError: number
-	iae: number
-	ise: number
-	overshoot: number
+	/**
+	 * Every metric is nullable: the backend maps non-finite values to `null` rather
+	 * than emitting a bare NaN token, which is not valid JSON.
+	 */
+	finalError: number | null
+	maxAbsError: number | null
+	iae: number | null
+	ise: number | null
+	overshoot: number | null
 	settlingTime: number | null
-	controlEffort: number
-	maxControl: number
+	controlEffort: number | null
+	maxControl: number | null
 	settlingTimeByBand?: SettlingBandTime[]
 	xSS?: number | null
 	eSS?: number | null
@@ -166,6 +170,17 @@ export interface ConstraintReport {
 	satisfied: boolean
 }
 
+/**
+ * The closest infeasible candidate a failed search evaluated. Its metrics are
+ * those of a *rejected* gain, not a solution: it exists so the UI can say which
+ * limits stood in the way instead of only that the search failed.
+ */
+export interface NearestMiss {
+	gain: number[]
+	metrics: MetricsResponse | null
+	violatedConstraints: ConstraintReport[]
+}
+
 export interface MetricSurfaces {
 	iae: (number | null)[][]
 	controlEffort: (number | null)[][]
@@ -190,4 +205,5 @@ export interface OptimizationResponse {
 	constraints: ConstraintReport[] | null
 	optimizerConfig: Record<string, unknown>
 	infeasibleReason?: string | null
+	nearestMiss?: NearestMiss | null
 }

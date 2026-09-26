@@ -133,42 +133,46 @@ export default function App() {
 									</span>
 								</button>
 
-								<nav className="sidebar__nav nav" aria-label="Workspace">
-									{tabOrder.map((id) => {
-										const Icon = TAB_META[id].icon
-										return (
-											<button
-												key={id}
-												className={`nav__item ${tab === id ? 'active' : ''}`}
-												title={TAB_META[id].label}
-												onClick={() => openTab(id)}
-											>
-												<span className="nav__icon"><Icon size={18} strokeWidth={1.8} /></span>
-												<span className="nav__label">{TAB_META[id].label}</span>
-											</button>
-										)
-									})}
-								</nav>
+							<nav className="sidebar__nav nav" aria-label="Workspace">
+								{tabOrder.map((id) => {
+									const Icon = TAB_META[id].icon
+									return (
+										<button
+											key={id}
+											className={`nav__item ${tab === id ? 'active' : ''}`}
+											aria-label={TAB_META[id].label}
+											aria-current={tab === id ? 'page' : undefined}
+											title={TAB_META[id].label}
+											onClick={() => openTab(id)}
+										>
+											<span className="nav__icon"><Icon /></span>
+											<span className="nav__label">{TAB_META[id].label}</span>
+										</button>
+									)
+								})}
+							</nav>
 
-								<button className="sidebar-toggle" onClick={toggleSidebar} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+							<div className="sidebar__footer">
+								<button className="sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
 									<span className="nav__icon">
-										{collapsed ? <PanelLeftOpen size={16} strokeWidth={1.8} /> : <PanelLeftClose size={16} strokeWidth={1.8} />}
+										{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
 									</span>
 									<span className="nav__label">{collapsed ? '' : 'Collapse'}</span>
 								</button>
 
-								<button className="sidebar-toggle" onClick={resetWorkspace} title="Reset workspace to defaults">
-									<span className="nav__icon"><RotateCcw size={16} strokeWidth={1.8} /></span>
+								<button className="sidebar-toggle" onClick={resetWorkspace} aria-label="Reset workspace to defaults" title="Reset workspace to defaults">
+									<span className="nav__icon"><RotateCcw /></span>
 									<span className="nav__label">{collapsed ? '' : 'Reset'}</span>
 								</button>
-							</aside>
+							</div>
+						</aside>
 
-							<main className="main">
-								<header className="main__header">
-									<div className="main__header-left">
-										<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} title="Open navigation">
-											<Menu size={18} strokeWidth={1.8} />
-										</button>
+						<main className="main">
+							<header className="main__header">
+								<div className="main__header-left">
+									<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation">
+										<Menu />
+									</button>
 										<h1 className="main__title">{TAB_META[tab].label}</h1>
 										<span className="main__header-badge">· {TAB_META[tab].badge}</span>
 									</div>

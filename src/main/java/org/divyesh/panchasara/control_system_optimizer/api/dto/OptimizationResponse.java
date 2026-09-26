@@ -24,5 +24,6 @@ public record OptimizationResponse(
 		ObjectiveBreakdownResponse objectiveBreakdown,
 		List<ConstraintReportResponse> constraints,
 		MetricSurfacesResponse metricSurfaces,
-		String infeasibleReason) {
+		String infeasibleReason,
+		NearestMissResponse nearestMiss) {
 }

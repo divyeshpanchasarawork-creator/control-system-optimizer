@@ -10,14 +10,14 @@ import org.divyesh.panchasara.control_system_optimizer.analysis.SettlingBandResu
  * mapped to {@code null} so that responses never emit NaN/Infinity in JSON.
  */
 public record MetricsResponse(
-		double finalError,
-		double maxAbsError,
-		double iae,
-		double ise,
-		double overshoot,
+		Double finalError,
+		Double maxAbsError,
+		Double iae,
+		Double ise,
+		Double overshoot,
 		Double settlingTime,
-		double controlEffort,
-		double maxControl,
+		Double controlEffort,
+		Double maxControl,
 		List<SettlingBandDto> settlingTimeByBand,
 		Double xSS,
 		Double eSS) {
@@ -42,19 +42,31 @@ public record MetricsResponse(
 	public static MetricsResponse from(PerformanceMetrics m, List<SettlingBandResult> settlingBands, Double xSS,
 			Double eSS) {
 		List<SettlingBandDto> bands = settlingBands.stream()
-				.map(s -> new SettlingBandDto(s.bandPercent(), s.settled() ? s.settlingTime() : null))
+				.map(s -> new SettlingBandDto(s.bandPercent(), s.settled() ? finiteOrNull(s.settlingTime()) : null))
 				.toList();
 		return new MetricsResponse(
-				m.finalError(),
-				m.maxAbsError(),
-				m.iae(),
-				m.ise(),
-				m.overshoot(),
-				Double.isFinite(m.settlingTime()) ? m.settlingTime() : null,
-				m.controlEffort(),
-				m.maxControl(),
+				finiteOrNull(m.finalError()),
+				finiteOrNull(m.maxAbsError()),
+				finiteOrNull(m.iae()),
+				finiteOrNull(m.ise()),
+				finiteOrNull(m.overshoot()),
+				finiteOrNull(m.settlingTime()),
+				finiteOrNull(m.controlEffort()),
+				finiteOrNull(m.maxControl()),
 				bands,
-				Double.isFinite(xSS) ? xSS : null,
-				Double.isFinite(eSS) ? eSS : null);
+				finiteOrNull(xSS),
+				finiteOrNull(eSS));
+	}
+
+	/**
+	 * NaN and both infinities are not representable in JSON, so every numeric field
+	 * passes through this guard before it reaches the response body.
+	 */
+	private static Double finiteOrNull(double value) {
+		return Double.isFinite(value) ? value : null;
+	}
+
+	private static Double finiteOrNull(Double value) {
+		return value != null && Double.isFinite(value) ? value : null;
 	}
 }

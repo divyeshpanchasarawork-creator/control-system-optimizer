@@ -12,6 +12,7 @@ import org.divyesh.panchasara.control_system_optimizer.api.dto.SimulationConfig;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.SimulationRequest;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.SimulationResponse;
 import org.divyesh.panchasara.control_system_optimizer.api.dto.TrajectoryPointDto;
+import org.divyesh.panchasara.control_system_optimizer.api.UnprocessableSimulationException;
 import org.divyesh.panchasara.control_system_optimizer.config.ControlProperties;
 import org.divyesh.panchasara.control_system_optimizer.control.Controller;
 import org.divyesh.panchasara.control_system_optimizer.control.StateFeedbackController;
@@ -22,6 +23,7 @@ import org.divyesh.panchasara.control_system_optimizer.simulation.SimulationSetu
 import org.divyesh.panchasara.control_system_optimizer.simulation.Trajectory;
 import org.divyesh.panchasara.control_system_optimizer.simulation.TrajectoryPoint;
 import org.divyesh.panchasara.control_system_optimizer.systems.SystemRegistry;
+import org.divyesh.panchasara.control_system_optimizer.util.NumericalGuard;
 import org.springframework.stereotype.Service;
 
 /**
@@ -51,6 +53,7 @@ public class SimulationService {
 		Trajectory trajectory = simulator.simulate(new SimulationSetup(system, controller,
 				settings.initialState(), settings.reference(), settings.startTime(), settings.endTime(),
 				settings.timeStep(), settings.saturation()));
+		requireFiniteTrajectory(trajectory);
 		PerformanceMetrics metrics = performanceAnalyzer.analyze(trajectory, settings.settlingBandFraction());
 		var settlingBands = performanceAnalyzer.settlingBands(trajectory, PerformanceAnalyzer.DISPLAY_BANDS_PERCENT);
 		SteadyState steady = steadyState(system, controller, settings.reference(), request);
@@ -104,11 +107,45 @@ public class SimulationService {
 		if (state.length != dimension || ref.length != dimension) {
 			throw new IllegalArgumentException("Initial state and reference must have dimension " + dimension);
 		}
+		NumericalGuard.requireAllFinite(state, "initialState");
+		NumericalGuard.requireAllFinite(ref, "reference");
 		double startTime = config.startTime() == null ? 0.0 : config.startTime();
 		double endTime = config.endTime() == null ? properties.simulation().defaultEndTime() : config.endTime();
 		double timeStep = config.timeStep() == null ? properties.simulation().defaultTimeStep() : config.timeStep();
 		double settlingBandFraction = (config.settlingBand() == null ? 2.0 : config.settlingBand()) / 100.0;
 		double saturation = config.saturation() == null ? 0.0 : config.saturation();
+
+		// Re-validate after the framework defaults are folded in: a bad property value
+		// or an omitted end time must not be able to reach the integrator either.
+		NumericalGuard.requireFinite(startTime, "startTime");
+		NumericalGuard.requireAfter(startTime, endTime, "endTime");
+		NumericalGuard.requirePositive(timeStep, "timeStep");
+		NumericalGuard.requireFiniteIfPresent(saturation, "saturation");
 		return new SimulationSettings(state, ref, startTime, endTime, timeStep, settlingBandFraction, saturation);
+	}
+
+	/**
+	 * Rejects a run whose state or input left the finite range. Such a trajectory
+	 * cannot be rendered or analyzed, and serializing it would put a bare NaN token
+	 * in the JSON body, which the browser cannot parse.
+	 */
+	private void requireFiniteTrajectory(Trajectory trajectory) {
+		for (TrajectoryPoint point : trajectory.points()) {
+			if (!isFinite(point.state()) || !isFinite(point.control())) {
+				throw new UnprocessableSimulationException(
+						"The closed loop left the finite range at t=" + point.time()
+								+ " s; the requested gains are numerically unstable over this horizon."
+								+ " Reduce the gain, increase the damping, or shorten the simulation.");
+			}
+		}
+	}
+
+	private static boolean isFinite(double[] values) {
+		for (double value : values) {
+			if (!Double.isFinite(value)) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

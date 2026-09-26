@@ -15,6 +15,13 @@ import java.util.SplittableRandom;
  * combined with the fixed iteration order and strict "&lt;" replacement rule,
  * identical (problem, bounds, config) inputs produce identical results. The best
  * cost after every generation is recorded as a convergence series.
+ *
+ * <p>A run that finds nothing feasible still reports the closest infeasible
+ * candidate it evaluated, ranked by {@link EvaluationDetail#violation()}, because
+ * every infeasible candidate shares the same +INFINITY cost and would otherwise be
+ * impossible to order. Candidates are evaluated through
+ * {@link OptimizationProblem#evaluateDetail(double[])}; the extra bookkeeping does
+ * not add an evaluation, since the default implementation is the same call.
  */
 public final class DifferentialEvolutionOptimizer implements Optimizer {
 
@@ -44,11 +51,21 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 
 		double[][] population = new double[populationSize][d];
 		double[] costs = new double[populationSize];
+		double nearestCost = Double.POSITIVE_INFINITY;
+		double nearestViolation = Double.POSITIVE_INFINITY;
+		double[] nearestX = null;
 		for (int i = 0; i < populationSize; i++) {
 			for (int j = 0; j < d; j++) {
 				population[i][j] = lower[j] + random.nextDouble() * (upper[j] - lower[j]);
 			}
-			costs[i] = problem.evaluate(population[i]);
+			EvaluationDetail detail = problem.evaluateDetail(population[i]);
+			costs[i] = detail.cost();
+			if (!Double.isFinite(detail.cost())
+					&& EvaluationDetail.isCloserMiss(detail, nearestViolation, nearestCost)) {
+				nearestViolation = detail.violation();
+				nearestCost = detail.cost();
+				nearestX = population[i].clone();
+			}
 		}
 
 		long evaluations = populationSize;
@@ -81,15 +98,22 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 					}
 				}
 
-				double trialCost = problem.evaluate(trial);
+				EvaluationDetail detail = problem.evaluateDetail(trial);
+				double trialCost = detail.cost();
 				evaluations++;
-				if (trialCost < costs[i]) {
-					System.arraycopy(trial, 0, population[i], 0, d);
-					costs[i] = trialCost;
-					if (trialCost < bestCost) {
-						bestCost = trialCost;
-						bestIndex = i;
+				if (Double.isFinite(trialCost)) {
+					if (trialCost < costs[i]) {
+						System.arraycopy(trial, 0, population[i], 0, d);
+						costs[i] = trialCost;
+						if (trialCost < bestCost) {
+							bestCost = trialCost;
+							bestIndex = i;
+						}
 					}
+				} else if (EvaluationDetail.isCloserMiss(detail, nearestViolation, nearestCost)) {
+					nearestViolation = detail.violation();
+					nearestCost = trialCost;
+					nearestX = trial.clone();
 				}
 			}
 			convergence.add(new ConvergencePoint(generation + 1, bestCost));
@@ -105,7 +129,7 @@ public final class DifferentialEvolutionOptimizer implements Optimizer {
 		boolean feasible = bestIndex >= 0 && Double.isFinite(bestCost);
 		double[] bestX = feasible ? population[bestIndex].clone() : null;
 		return new OptimizationResult(type(), bestX, bestCost, evaluations, feasible, converged(convergence),
-				config.seed(), convergence, null, null, configMap);
+				config.seed(), convergence, null, null, configMap, feasible ? null : nearestX);
 	}
 
 	/**

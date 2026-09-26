@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.divyesh.panchasara.control_system_optimizer.control.Controller;
 import org.divyesh.panchasara.control_system_optimizer.model.DynamicSystem;
+import org.divyesh.panchasara.control_system_optimizer.util.NumericalGuard;
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,6 +37,14 @@ public final class RungeKutta4Simulator implements Simulator {
 		double t0 = setup.startTime();
 		double tEnd = setup.endTime();
 		double dt = setup.timeStep();
+
+		// Guards the step loop below: a non-positive dt makes `t` decrease forever
+		// while points keep accumulating, and a NaN dt silently ends the run after a
+		// single sample. Both are rejected before any integration happens.
+		NumericalGuard.requireFinite(t0, "startTime");
+		NumericalGuard.requireFinite(tEnd, "endTime");
+		NumericalGuard.requirePositive(dt, "timeStep");
+		NumericalGuard.requireAfter(t0, tEnd, "endTime");
 
 		long stepCount = (long) Math.ceil((tEnd - t0) / dt);
 		if (stepCount > MAX_STEPS) {

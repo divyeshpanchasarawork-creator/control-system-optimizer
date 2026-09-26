@@ -138,6 +138,11 @@
   color: var(--text);
 }
 
+.nav__item:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
 .nav__item.active {
   background: var(--blue-soft);
   color: var(--blue);
@@ -156,6 +161,18 @@
   justify-content: center;
   width: 20px;
   height: 20px;
+  color: inherit;
+}
+
+/*
+ * Single source of truth for sidebar icon geometry: every icon renders at the
+ * same 18px box inside the same 20px slot, whatever size prop a caller passes.
+ */
+.nav__icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
 }
 
 .nav__label {
@@ -169,26 +186,43 @@
   overflow: hidden;
 }
 
-.sidebar-toggle {
+/* Footer actions share the nav item metrics so the two groups read as one system */
+.sidebar__footer {
   margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid transparent;
   background: none;
   font: inherit;
   font-size: var(--fs-caption);
   font-weight: var(--weight-strong);
   color: var(--text-3);
+  text-align: left;
   cursor: pointer;
+  width: 100%;
+  white-space: nowrap;
   transition: background var(--dur), color var(--dur);
 }
 
 .sidebar-toggle:hover {
   background: var(--surface-2);
   color: var(--text-2);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 
 .sidebar--collapsed .sidebar-toggle {
@@ -217,6 +251,13 @@
   background: var(--surface);
   color: var(--text-2);
   cursor: pointer;
+}
+
+.main__menu-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
 }
 
 .main__menu-btn:hover {
@@ -405,13 +446,12 @@
   border-radius: var(--radius-sm);
   box-shadow: 0 1px 2px rgba(29, 29, 31, 0.05), 0 8px 28px -12px rgba(29, 29, 31, 0.16);
   overflow: visible;
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur);
+  transition: border-color var(--dur);
 }
 
+/* Flat on hover: the border tone shifts, the card never lifts or grows a shadow. */
 .panel:hover {
-  transform: translateY(-2px);
   border-color: var(--border-strong);
-  box-shadow: 0 2px 4px rgba(29, 29, 31, 0.05), 0 18px 44px -14px rgba(29, 29, 31, 0.24);
 }
 
 .panel__header {
@@ -449,7 +489,6 @@
   flex-direction: column;
   gap: 3px;
   box-shadow: 0 1px 2px rgba(29, 29, 31, 0.04);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
 .metric-card::before {
@@ -470,11 +509,6 @@
 
 .metric-card--bad::before {
   background: var(--red);
-}
-
-.metric-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px -12px rgba(29, 29, 31, 0.12);
 }
 
 .metric-card__label {
@@ -1129,18 +1163,16 @@
   font-weight: var(--weight-strong);
   color: var(--text);
   cursor: pointer;
-  transition: background var(--dur), border-color var(--dur), transform var(--dur) var(--ease), box-shadow var(--dur);
+  transition: background var(--dur), border-color var(--dur);
 }
 
 .btn:hover {
   border-color: var(--blue);
-  transform: translateY(-1px);
 }
 
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
 }
 
 .btn.primary {

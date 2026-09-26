@@ -19,6 +19,9 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	/** Guards the cause-chain walk against self-referencing or pathological chains. */
+	private static final int MAX_CAUSE_DEPTH = 10;
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
 		String message = ex.getBindingResult().getFieldErrors().stream()
@@ -31,7 +34,25 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler({ IllegalArgumentException.class, HttpMessageNotReadableException.class,
 			MethodArgumentTypeMismatchException.class })
 	public ResponseEntity<ErrorResponse> handleBadRequest(Exception ex, HttpServletRequest request) {
-		return respond(HttpStatus.BAD_REQUEST, safeMessage(ex), request, "Bad Request");
+		return respond(HttpStatus.BAD_REQUEST, describe(ex), request, "Bad Request");
+	}
+
+	/**
+	 * The message a client should see. A rejected record constructor surfaces as
+	 * "JSON parse error: Cannot construct instance of ..., problem: &lt;reason&gt;",
+	 * so the innermost cause carries the actual reason and is preferred.
+	 */
+	private String describe(Exception ex) {
+		String message = ex.getMessage();
+		Throwable cause = ex.getCause();
+		for (int depth = 0; depth < MAX_CAUSE_DEPTH && cause != null && cause != cause.getCause(); depth++) {
+			String causeMessage = cause.getMessage();
+			if (causeMessage != null && !causeMessage.isBlank()) {
+				message = causeMessage;
+			}
+			cause = cause.getCause();
+		}
+		return safeMessageText(message);
 	}
 
 	@ExceptionHandler(MissingServletRequestParameterException.class)
@@ -39,6 +60,12 @@ public class GlobalExceptionHandler {
 			HttpServletRequest request) {
 		return respond(HttpStatus.BAD_REQUEST, "Missing required parameter '" + ex.getParameterName() + "'", request,
 				"Bad Request");
+	}
+
+	@ExceptionHandler(UnprocessableSimulationException.class)
+	public ResponseEntity<ErrorResponse> handleUnprocessable(UnprocessableSimulationException ex,
+			HttpServletRequest request) {
+		return respond(HttpStatus.UNPROCESSABLE_ENTITY, safeMessage(ex), request, "Unprocessable Simulation");
 	}
 
 	@ExceptionHandler(Exception.class)
@@ -50,7 +77,10 @@ public class GlobalExceptionHandler {
 
 	/** A message whose internals are safe to echo; never exposes exception stack internals. */
 	private String safeMessage(Exception ex) {
-		String message = ex.getMessage();
+		return safeMessageText(ex.getMessage());
+	}
+
+	private String safeMessageText(String message) {
 		if (message == null || message.isBlank() || !message.chars().allMatch(c -> c >= 0x20 && c != 0x7f)) {
 			return "Bad Request";
 		}

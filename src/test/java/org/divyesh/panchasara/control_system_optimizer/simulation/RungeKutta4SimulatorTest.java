@@ -1,7 +1,10 @@
 package org.divyesh.panchasara.control_system_optimizer.simulation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Map;
 
@@ -103,5 +106,52 @@ class RungeKutta4SimulatorTest {
 				new double[] { 0, 0 }, new double[] { 0, 0 }, 0.0, 1.0, 0.25));
 		assertEquals(5, result.points().size());
 		assertEquals(1.0, result.endTime(), 1e-9);
+	}
+
+	@Test
+	void rejectsNonPositiveAndNonFiniteTimestep() {
+		// The SimulationSetup record is the primary guard; these document that boundary.
+		var system = new SpringDamperSystem(1.0, 0.5, 10.0);
+		for (double timeStep : new double[] { -0.01, 0.0, Double.NaN, Double.POSITIVE_INFINITY,
+				Double.NEGATIVE_INFINITY }) {
+			IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+					() -> new SimulationSetup(system, null, new double[] { 0, 0 }, new double[] { 0, 0 }, 0.0, 1.0,
+							timeStep));
+			assertTrue(ex.getMessage().contains("Time step"), ex.getMessage());
+		}
+	}
+
+	@Test
+	void rejectsNonIncreasingHorizon() {
+		var system = new SpringDamperSystem(1.0, 0.5, 10.0);
+		assertThrows(IllegalArgumentException.class,
+				() -> new SimulationSetup(system, null, new double[] { 0, 0 }, new double[] { 0, 0 }, 5.0, 1.0, 0.01));
+		assertThrows(IllegalArgumentException.class,
+				() -> new SimulationSetup(system, null, new double[] { 0, 0 }, new double[] { 0, 0 }, 1.0, 1.0, 0.01));
+		assertThrows(IllegalArgumentException.class,
+				() -> new SimulationSetup(system, null, new double[] { 0, 0 }, new double[] { 0, 0 }, 0.0, Double.NaN,
+						0.01));
+	}
+
+	@Test
+	void simulatorRejectsInvalidSetupEvenWhenTheRecordGuardIsBypassed() {
+		// Defence in depth: the integrator must never run its step loop on a setup
+		// whose interval is unusable, no matter how the setup instance was produced.
+		var system = new SpringDamperSystem(1.0, 0.5, 10.0);
+		SimulationSetup bypassed = mock(SimulationSetup.class);
+		when(bypassed.system()).thenReturn(system);
+		when(bypassed.startTime()).thenReturn(0.0);
+		when(bypassed.endTime()).thenReturn(1.0);
+		when(bypassed.timeStep()).thenReturn(-0.01);
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> simulator.simulate(bypassed));
+		assertTrue(ex.getMessage().contains("timeStep"), ex.getMessage());
+	}
+
+	@Test
+	void rejectsTooManySteps() {
+		var system = new SpringDamperSystem(1.0, 0.5, 10.0);
+		var setup = new SimulationSetup(system, null, new double[] { 0, 0 }, new double[] { 0, 0 }, 0.0, 10.0, 1e-5);
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> simulator.simulate(setup));
+		assertTrue(ex.getMessage().contains("maximum"), ex.getMessage());
 	}
 }

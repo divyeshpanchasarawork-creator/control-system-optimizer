@@ -78,6 +78,13 @@ const boundaryHits: string[] = []
 	const constraintFields = [w.maxControl, w.maxOvershoot, w.maxSettlingTime, w.maxSteadyStateError, w.maxControlEnergy]
 	const hasActiveConstraints = w.constraintsEnabled && constraintFields.some((v) => Number.isFinite(v) && v > 0)
 
+	const result = w.optimizerResult
+	const infeasible = result != null && !result.feasible
+	const nearMiss = infeasible ? (result?.nearestMiss ?? null) : null
+	// a rejected gain must never be shown as "the best gain", so the two cases
+	// are labelled separately instead of sharing one formatter
+	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')
+
 	return (
 		<div className="stack">
 			<Learn title="How optimization works">
@@ -247,7 +254,13 @@ const boundaryHits: string[] = []
 							</div>
 							<div className="opt-summary__row">
 								<span>Best candidate</span>
-								<span className="mono">K = [{(w.optimizerResult.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')}]</span>
+								<span className="mono">
+									{result?.feasible
+										? `K = [${bestGainLabel}]`
+										: nearMiss
+											? `none feasible · closest was K = [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
+											: 'none feasible in the search box'}
+								</span>
 							</div>
 							<div className="opt-summary__row">
 								<span>Objective</span>
@@ -260,8 +273,50 @@ const boundaryHits: string[] = []
 						</div>
 					</Panel>
 
-					{!w.optimizerResult.feasible && w.optimizerResult.infeasibleReason && (
-						<div className="callout callout--error">{w.optimizerResult.infeasibleReason}</div>
+					{infeasible && result?.infeasibleReason && (
+						<div className="callout callout--error">{result.infeasibleReason}</div>
+					)}
+
+					{nearMiss && nearMiss.violatedConstraints.length > 0 && (
+						<Panel
+							title="Closest candidate · and what stopped it"
+							right={<Learn title="Why the search failed"><p>Every candidate costs +∞ once it breaks a limit, so the search ranks them by the worst relative miss instead. The candidate below came nearest, and these are the limits it broke. Relax one of them, or widen the gain range, and rerun.</p></Learn>}
+						>
+							<p className="faint" style={{ marginTop: 0 }}>
+								Nearest candidate K = [{nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]
+								{nearMiss.metrics && (
+									<>
+										{' '}· IAE {fmt(nearMiss.metrics.iae, 3)} · energy{' '}
+										{fmt(nearMiss.metrics.controlEffort, 1)}
+									</>
+								)}
+								. This gain was rejected, so it is not applied to the plant.
+							</p>
+							<table className="data">
+								<thead>
+									<tr>
+										<th>Constraint missed</th>
+										<th>Achieved</th>
+										<th>Limit</th>
+										<th>Over by</th>
+									</tr>
+								</thead>
+								<tbody>
+									{nearMiss.violatedConstraints.map((c) => (
+										<tr key={c.id} className="row-best">
+											<td>{c.name}</td>
+											<td className="mono">{c.achieved === null ? 'Not reached' : fmt(c.achieved, 3)}</td>
+											<td className="mono">{fmt(c.limit, 3)}</td>
+											<td className="mono">
+												{c.achieved === null || c.limit <= 0
+													? '—'
+													: `${fmt(((c.achieved - c.limit) / c.limit) * 100, 0)}%`}
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</Panel>
 					)}
 
 					{boundaryHit && (
@@ -284,7 +339,17 @@ const boundaryHits: string[] = []
 
 					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid-3">
-							<MetricCard hint="Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r)." label="Best gain" value={`[${(w.optimizerResult.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')}]`} />
+							<MetricCard
+								hint={result?.feasible
+									? 'Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r).'
+									: 'No gain inside the search box satisfied every enforced limit, so there is no best gain. The closest candidate is reported alongside the limits it missed.'}
+								label="Best gain"
+								value={result?.feasible
+									? `[${bestGainLabel}]`
+									: nearMiss
+										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
+										: 'No feasible gain in range'}
+							/>
 							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
 							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${w.optimizerResult.elapsedMillis} ms`} />
 							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'} />

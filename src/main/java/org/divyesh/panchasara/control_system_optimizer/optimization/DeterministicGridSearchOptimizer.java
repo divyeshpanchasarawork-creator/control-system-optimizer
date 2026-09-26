@@ -57,6 +57,9 @@ public final class DeterministicGridSearchOptimizer implements Optimizer {
 		int[] index = new int[d];
 		double best = Double.POSITIVE_INFINITY;
 		double[] bestX = null;
+		double nearestCost = Double.POSITIVE_INFINITY;
+		double nearestViolation = Double.POSITIVE_INFINITY;
+		double[] nearestX = null;
 		long evaluations = 0;
 
 		for (long step = 0; step < total; step++) {
@@ -72,9 +75,17 @@ public final class DeterministicGridSearchOptimizer implements Optimizer {
 				iaeSurface[index[0]][index[1]] = Double.isFinite(cost) ? detail.iae() : null;
 				effortSurface[index[0]][index[1]] = Double.isFinite(cost) ? detail.controlEffort() : null;
 			}
-			if (bestX == null || cost < best) {
-				best = cost;
-				bestX = x.clone();
+			if (Double.isFinite(cost)) {
+				if (bestX == null || cost < best) {
+					best = cost;
+					bestX = x.clone();
+				}
+			} else if (EvaluationDetail.isCloserMiss(detail, nearestViolation, nearestCost)) {
+				// every infeasible candidate costs +INFINITY, so the violation score
+				// is the only thing that can order them; cost breaks any remaining tie
+				nearestViolation = detail.violation();
+				nearestCost = cost;
+				nearestX = x.clone();
 			}
 			if (evaluations % milestoneInterval == 0) {
 				convergence.add(new ConvergencePoint((int) evaluations, best));
@@ -95,10 +106,11 @@ public final class DeterministicGridSearchOptimizer implements Optimizer {
 		configMap.put("resolution", res.clone());
 		configMap.put("includeCostSurface", config.includeCostSurface());
 
-		boolean feasible = bestX != null && Double.isFinite(best);
+		// bestX is only ever assigned for a finite cost
+		boolean feasible = bestX != null;
 		MetricSurfaces metricSurfaces = costSurface == null ? null
 				: new MetricSurfaces(iaeSurface, effortSurface);
 		return new OptimizationResult(type(), feasible ? bestX : null, best, evaluations, feasible, true, null,
-				convergence, costSurface, metricSurfaces, configMap);
+				convergence, costSurface, metricSurfaces, configMap, feasible ? null : nearestX);
 	}
 }

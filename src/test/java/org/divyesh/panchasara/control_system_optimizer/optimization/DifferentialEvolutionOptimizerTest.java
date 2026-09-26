@@ -1,6 +1,10 @@
 package org.divyesh.panchasara.control_system_optimizer.optimization;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -96,5 +100,65 @@ class DifferentialEvolutionOptimizerTest {
 		assertTrue(result.bestCost() < 1e-3, "DE cost was " + result.bestCost());
 		assertTrue(Math.abs(result.bestParameters()[0] - 1.0) < 0.05);
 		assertTrue(Math.abs(result.bestParameters()[1] - 2.0) < 0.05);
+	}
+
+	@Test
+	void nearestMissIsTheClosestCandidateNotTheFirstVisited() {
+		OptimizationResult result = new DifferentialEvolutionOptimizer(
+				new DifferentialEvolutionConfig(60, 120, 0.5, 0.9, 11)).optimize(missesBestAt(0.8));
+		assertFalse(result.feasible());
+		assertNull(result.bestParameters());
+		assertNotNull(result.nearestMiss());
+		// 60 x 120 samples crowd far closer to the target than any arbitrary pick
+		assertEquals(0.8, result.nearestMiss()[0], 1e-2);
+	}
+
+	@Test
+	void nearestMissIsAbsentWhenSomethingIsFeasible() {
+		OptimizationResult result = new DifferentialEvolutionOptimizer(
+				new DifferentialEvolutionConfig(50, 200, 0.5, 0.9, 7)).optimize(quadratic());
+		assertTrue(result.feasible());
+		assertNull(result.nearestMiss());
+	}
+
+	@Test
+	void nearestMissIsReproducibleForTheSameSeed() {
+		var config = new DifferentialEvolutionConfig(60, 120, 0.5, 0.9, 11);
+		OptimizationResult first = new DifferentialEvolutionOptimizer(config).optimize(missesBestAt(0.8));
+		OptimizationResult second = new DifferentialEvolutionOptimizer(config).optimize(missesBestAt(0.8));
+		assertArrayEquals(first.nearestMiss(), second.nearestMiss());
+	}
+
+	/**
+	 * Every candidate is infeasible with an identical cost, so only the violation
+	 * score can order them: the closest one to {@code target} is the near miss.
+	 */
+	private OptimizationProblem missesBestAt(double target) {
+		return new OptimizationProblem() {
+			@Override
+			public String[] parameterNames() {
+				return new String[] { "x" };
+			}
+
+			@Override
+			public double[] lowerBounds() {
+				return new double[] { 0 };
+			}
+
+			@Override
+			public double[] upperBounds() {
+				return new double[] { 1 };
+			}
+
+			@Override
+			public double evaluate(double[] candidate) {
+				return Double.POSITIVE_INFINITY;
+			}
+
+			@Override
+			public EvaluationDetail evaluateDetail(double[] candidate) {
+				return new EvaluationDetail(Double.POSITIVE_INFINITY, null, null, Math.abs(candidate[0] - target));
+			}
+		};
 	}
 }

@@ -23,6 +23,10 @@ import java.util.Map;
  *                       alongside {@code costSurface} (null unless requested)
  * @param config         effective configuration echoed back (resolution, DE
  *                       parameters, seed, ...)
+ * @param nearestMiss    the closest infeasible candidate evaluated, or
+ *                       {@code null} when the search found a feasible one. Lets a
+ *                       failed run report what it came closest to instead of only
+ *                       that it failed; the caller re-evaluates it for details.
  */
 public record OptimizationResult(
 		String optimizerType,
@@ -35,7 +39,8 @@ public record OptimizationResult(
 		List<ConvergencePoint> convergence,
 		Double[][] costSurface,
 		MetricSurfaces metricSurfaces,
-		Map<String, Object> config) {
+		Map<String, Object> config,
+		double[] nearestMiss) {
 
 	public OptimizationResult {
 		convergence = convergence == null ? List.of() : List.copyOf(convergence);

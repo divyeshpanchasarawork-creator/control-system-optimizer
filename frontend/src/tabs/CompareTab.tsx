@@ -50,27 +50,38 @@ function allMetricKeys() {
 	return METRIC_GROUPS.flatMap((g) => g.keys)
 }
 
+/** A change smaller than this is float noise, not an improvement worth reporting. */
+const DEAD_BAND_PERCENT = 0.5
+
+/**
+ * Percentage change from `from` to `to`, or null when the ratio is undefined.
+ * Changes inside the dead band collapse to exactly 0 so an untouched metric
+ * never renders as a sub-0.1% regression.
+ */
+function relativeDelta(from: number, to: number): number | null {
+	if (!Number.isFinite(from) || !Number.isFinite(to) || from === 0) return null
+	const rel = ((to - from) / Math.abs(from)) * 100
+	return Math.abs(rel) < DEAD_BAND_PERCENT ? 0 : rel
+}
+
 function tradeoffSentence(manual: MetricsResponse, optimized: MetricsResponse): string | null {
-	const deltas = allMetricKeys()
-		.filter((k) => {
-			const m = metricValue(manual, k.key)
-			const o = metricValue(optimized, k.key)
-			return m !== null && o !== null && Number.isFinite(m) && Number.isFinite(o) && m !== 0
-		})
-		.map((k) => {
-			const m = metricValue(manual, k.key) as number
-			const o = metricValue(optimized, k.key) as number
-			return { k, rel: ((o - m) / Math.abs(m)) * 100 }
-		})
+	// only metrics that actually moved are counted, so "3 of 5" cannot be
+	// inflated by rows whose change is indistinguishable from zero
+	const deltas = allMetricKeys().flatMap((k) => {
+		const m = metricValue(manual, k.key)
+		const o = metricValue(optimized, k.key)
+		const rel = m === null || o === null ? null : relativeDelta(m, o)
+		return rel === null || rel === 0 ? [] : [{ k, rel }]
+	})
 	if (deltas.length === 0) return null
-	const improved = deltas.filter((d) => d.rel < -0.5).sort((a, b) => a.rel - b.rel)
-	const degraded = deltas.filter((d) => d.rel > 0.5).sort((a, b) => b.rel - a.rel)
+	const improved = deltas.filter((d) => d.rel < 0).sort((a, b) => a.rel - b.rel)
+	const degraded = deltas.filter((d) => d.rel > 0).sort((a, b) => b.rel - a.rel)
 	if (improved.length > 0 && degraded.length > 0) {
 		const best = improved[0]
 		const worst = degraded[0]
 		return `The optimizer trimmed ${best.k.name.toLowerCase()} by ${fmt(Math.abs(best.rel), 1)}% but accepted a ${fmt(Math.abs(worst.rel), 1)}% rise in ${worst.k.name.toLowerCase()}. Under the current weights it accepted that trade-off.`
 	}
-	if (improved.length > 0) return `The optimizer improved ${improved.length} of ${deltas.length} measurable metrics; the largest win was ${improved[0].k.name.toLowerCase()} at ${fmt(Math.abs(improved[0].rel), 1)}%.`
+	if (improved.length > 0) return `The optimizer improved ${improved.length} of ${deltas.length} metrics that moved; the largest win was ${improved[0].k.name.toLowerCase()} at ${fmt(Math.abs(improved[0].rel), 1)}%.`
 	if (degraded.length > 0) return `The optimizer did not beat your manual gain on any metric; the largest regression was ${degraded[0].k.name.toLowerCase()} at ${fmt(degraded[0].rel, 1)}%.`
 	return null
 }
@@ -228,15 +239,15 @@ export function CompareTab() {
 									{METRIC_GROUPS.flatMap((g) => g.keys).map((k) => {
 										const manual = metricValue(manualMetrics, k.key)
 										const optimized = metricValue(optMetrics, k.key)
-										if (manual === null || optimized === null || !Number.isFinite(manual) || !Number.isFinite(optimized) || manual === 0) return null
-										const rel = ((optimized - manual) / Math.abs(manual)) * 100
+										const rel = manual === null || optimized === null ? null : relativeDelta(manual, optimized)
+										if (rel === null) return null
 										const tone = rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
 										return (
 											<MetricCard
 												key={k.key}
 												label={k.name}
 												sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
-												value={fmt(rel, 1) + '%'}
+												value={`${rel > 0 ? '+' : ''}${fmt(rel, 1)}%`}
 												tone={tone}
 											/>
 										)

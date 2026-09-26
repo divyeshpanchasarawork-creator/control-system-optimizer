@@ -78,13 +78,68 @@ public final class ControlProblemFactory {
 				PerformanceMetrics metrics = evaluation.metrics();
 				return new EvaluationDetail(evaluation.cost(),
 						metrics == null ? null : applicationScalar(metrics.iae()),
-						metrics == null ? null : applicationScalar(metrics.controlEffort()));
+						metrics == null ? null : applicationScalar(metrics.controlEffort()),
+						violationOf(evaluation));
 			}
 		};
 	}
 
 	private Double applicationScalar(double value) {
 		return Double.isFinite(value) ? value : null;
+	}
+
+	/**
+	 * Ranks how badly a candidate missed its constraints, so that a search
+	 * finding nothing feasible can still report the closest thing it evaluated.
+	 *
+	 * <p>Packs two ordered keys into one comparable double, as described on
+	 * {@link EvaluationDetail#violation()}:
+	 *
+	 * <pre>
+	 *   tier * TIER_STEP + worstOvershoot
+	 * </pre>
+	 *
+	 * <p>The tier separates candidates whose misses could all be quantified (0)
+	 * from those carrying at least one unquantifiable miss (1), such as a
+	 * settling-time limit on a response that never settles. A quantifier is
+	 * preferred because its number is actionable. A candidate with no metrics at
+	 * all takes tier 2: "it destabilized" is the least useful thing to report.
+	 *
+	 * <p>Within a tier the worst relative overshoot decides, so the near miss is
+	 * the candidate that comes closest to satisfying <em>every</em> limit rather
+	 * than one that trades a large miss on one limit for a small gain on another.
+	 */
+	private double violationOf(DetailedEvaluation evaluation) {
+		if (Double.isFinite(evaluation.cost())) {
+			return 0.0;
+		}
+		if (evaluation.metrics() == null) {
+			return EvaluationDetail.NO_DIAGNOSTICS;
+		}
+		Constraints.ConstraintReport report = evaluation.constraintReport();
+		if (report == null) {
+			// infeasible with metrics, but no limits were enforced to compare against
+			return EvaluationDetail.UNQUANTIFIED;
+		}
+
+		double worst = 0.0;
+		boolean unquantified = false;
+		for (Constraints.ControlLimit limit : new Constraints.ControlLimit[] {
+				report.maxControl(), report.maxOvershoot(), report.maxSettlingTime(),
+				report.maxSteadyStateError(), report.maxControlEnergy() }) {
+			if (limit == null || limit.satisfied()) {
+				continue;
+			}
+			Double achieved = limit.achieved();
+			double bound = limit.limit();
+			if (achieved == null || !Double.isFinite(achieved) || !Double.isFinite(bound) || bound <= 0.0) {
+				// no value to turn into a ratio; recorded in the tier, not the ratio
+				unquantified = true;
+				continue;
+			}
+			worst = Math.max(worst, Math.min(EvaluationDetail.REL_CAP, achieved / bound - 1.0));
+		}
+		return (unquantified ? EvaluationDetail.TIER_STEP : 0.0) + worst;
 	}
 
 	/**

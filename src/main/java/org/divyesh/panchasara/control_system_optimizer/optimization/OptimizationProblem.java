@@ -31,6 +31,10 @@ public interface OptimizationProblem {
 	 * that do not want to expose metrics inherit a metrics-free evaluation.
 	 */
 	default EvaluationDetail evaluateDetail(double[] candidate) {
-		return new EvaluationDetail(evaluate(candidate), null, null);
+		double cost = evaluate(candidate);
+		// no detail to report on, so an infeasible candidate cannot be ranked
+		// among quantified misses and takes the lowest available tier
+		return new EvaluationDetail(cost, null, null,
+				Double.isFinite(cost) ? 0.0 : EvaluationDetail.NO_DIAGNOSTICS);
 	}
 }

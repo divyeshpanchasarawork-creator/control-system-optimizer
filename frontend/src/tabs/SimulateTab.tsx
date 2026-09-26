@@ -9,7 +9,7 @@ import type { SimulationResponse } from '../api/types'
 
 function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbsError') {
 	const v = m[key]
-	if (!Number.isFinite(v)) return 'good'
+	if (typeof v !== 'number' || !Number.isFinite(v)) return 'neutral'
 	return v > 20 ? 'bad' : 'good'
 }
 
@@ -35,6 +35,10 @@ export function SimulateTab() {
 		damping: w.damping,
 		springConstant: w.springConstant,
 		tracking: w.tracking,
+		// both change the simulated control law, so omitting them left the
+		// rendered run describing gains that were no longer the ones applied
+		feedforward: w.feedforward,
+		saturation: w.saturation,
 		gain: (w.useOptimized && w.optimizedGain ? w.optimizedGain : w.manualGain).join(','),
 		useOptimized: w.useOptimized,
 		initialState: w.initialState.join(','),
@@ -93,7 +97,7 @@ export function SimulateTab() {
 	if (!w.tracking) trackingBadge = { text: 'Not tracking', tone: 'neutral' }
 	else if (!metrics) trackingBadge = { text: 'Pending', tone: 'neutral' }
 	else if (eSS !== null && eSS <= trackBand) trackingBadge = { text: 'Tracks · e_ss within band', tone: 'good' }
-	else if (metrics.finalError <= trackBand) trackingBadge = { text: 'Tracks · final within band', tone: 'good' }
+	else if (metrics.finalError !== null && metrics.finalError <= trackBand) trackingBadge = { text: 'Tracks · final within band', tone: 'good' }
 	else if (metrics.settlingTime === null) trackingBadge = { text: 'Offset may persist', tone: 'neutral' }
 	else trackingBadge = { text: 'Offset exceeds band', tone: 'bad' }
 
@@ -105,7 +109,7 @@ export function SimulateTab() {
 	let actuatorBadge: { text: string; tone: 'good' | 'bad' | 'neutral' }
 	if (w.saturation <= 0) actuatorBadge = { text: 'Unlimited', tone: 'neutral' }
 	else if (!metrics) actuatorBadge = { text: 'Pending', tone: 'neutral' }
-	else if (metrics.maxControl <= w.saturation) actuatorBadge = { text: `Within ±${fmt(w.saturation)} N`, tone: 'good' }
+	else if (metrics.maxControl !== null && metrics.maxControl <= w.saturation) actuatorBadge = { text: `Within ±${fmt(w.saturation)} N`, tone: 'good' }
 	else actuatorBadge = { text: `Exceeds ±${fmt(w.saturation)} N`, tone: 'bad' }
 
 	return (
