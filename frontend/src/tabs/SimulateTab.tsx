@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Badge, BusyNote, CheckField, GainField, Info, Learn, MetricCard, NumberField, Panel, RadioChip } from '../components/common'
+import { Badge, BusyNote, CheckField, DataTable, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SectionLabel } from '../components/common'
 import { fmt } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -120,7 +120,7 @@ export function SimulateTab() {
 			</Learn>
 
 			<section>
-				<p className="section-label">Plant · the physics</p>
+				<SectionLabel>Plant · the physics</SectionLabel>
 				<Panel>
 					<div className="form-grid">
 						<NumberField label="Mass" unit="kg" hint="Mass of the moving body (0.1 to 10). Higher mass makes the response slower and less sensitive to the controller."
@@ -134,7 +134,7 @@ export function SimulateTab() {
 			</section>
 
 			<section>
-				<p className="section-label">Controller · state feedback</p>
+				<SectionLabel>Controller · state feedback</SectionLabel>
 				<Panel>
 					<div className="gain-pair">
 						<GainField name="Kp" unit="position" hint="Position (proportional) gain. u = −Kp·(x₁ − r₁) − Kd·(x₂ − ṙ₂). More Kp gives a stiffer, faster response but can cause overshoot or instability."
@@ -159,17 +159,19 @@ export function SimulateTab() {
 						</span>
 					</div>
 					<div style={{ marginTop: "var(--space-2)" }} className="row">
-						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
-							<input type="checkbox" checked={w.feedforward} disabled={!w.tracking} onChange={(e) => w.update({ feedforward: e.target.checked })} />
-							<span>Reference feedforward</span>
-							<Info text="Feedforward adds +k·r₁ to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking." />
-						</label>
+						<CheckField
+							label="Reference feedforward"
+							checked={w.feedforward}
+							disabled={!w.tracking}
+							onChange={(v) => w.update({ feedforward: v })}
+							hint="Feedforward adds +k·r₁ to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking."
+						/>
 					</div>
 				</Panel>
 			</section>
 
 			<section>
-				<p className="section-label">Reference & simulation</p>
+				<SectionLabel>Reference & simulation</SectionLabel>
 				<Panel>
 					<div className="form-grid">
 						<NumberField label="Reference position" unit="m" hint="Position the controller chases (x₁ reference)."
@@ -204,7 +206,7 @@ export function SimulateTab() {
 				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (
 					<button type="button" className="btn btn--sm" onClick={() => setPositionFocus((f) => !f)}>Focus on reference</button>
 				) : undefined}>
-					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <div className="empty">No simulation yet</div>}
+					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 				<Panel title="Closed-Loop Poles" className={busy ? 'chart-busy' : ''}>
 					{w.stability ? (
@@ -221,25 +223,23 @@ export function SimulateTab() {
 							</div>
 						</>
 					) : (
-						<div className="empty">
-							Running stability analysis…
-						</div>
+						<Empty>Running stability analysis…</Empty>
 					)}
 				</Panel>
 			</div>
 
 			<div className="charts-grid">
 				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
-					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <div className="empty">No simulation yet</div>}
+					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 			</div>
 
 			<div className="charts-grid charts-grid--2a">
 				<Panel title="Velocity x₂(t)" className={busy ? 'chart-busy' : ''}>
-					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <div className="empty">No simulation yet</div>}
+					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 				<Panel title="Control u(t)" className={busy ? 'chart-busy' : ''}>
-					{w.simulation ? <TrajectoryChart response={w.simulation} kind="control" /> : <div className="empty">No simulation yet</div>}
+					{w.simulation ? <TrajectoryChart response={w.simulation} kind="control" /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 			</div>
 
@@ -283,7 +283,7 @@ export function SimulateTab() {
 						</div>
 					</>
 				) : (
-					<div className="empty">Run a simulation to see metrics.</div>
+					<Empty>Run a simulation to see metrics.</Empty>
 				)}
 			</Panel>
 
@@ -311,13 +311,7 @@ export function SimulateTab() {
 			<Panel title="Settling time across bands">
 				<p className="faint reset-top">The same run measured against four tolerance bands. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
 				{metrics?.settlingTimeByBand?.length ? (
-					<table className="data">
-						<thead>
-							<tr>
-								<th>Band</th>
-								<th>Measured settling time</th>
-							</tr>
-						</thead>
+					<DataTable columns={[{ header: 'Band' }, { header: 'Measured settling time' }]}>
 						<tbody>
 							{metrics.settlingTimeByBand.map((b) => (
 								<tr key={b.bandPercent}>
@@ -326,9 +320,9 @@ export function SimulateTab() {
 								</tr>
 							))}
 						</tbody>
-					</table>
+					</DataTable>
 				) : (
-					<div className="empty">Run a simulation to see settling at each band.</div>
+					<Empty>Run a simulation to see settling at each band.</Empty>
 				)}
 			</Panel>
 

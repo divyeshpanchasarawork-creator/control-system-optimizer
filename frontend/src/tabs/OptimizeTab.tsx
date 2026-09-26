@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, Info, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField } from '../components/common'
+import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SectionLabel, SelectField } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -92,7 +92,7 @@ const boundaryHits: string[] = []
 				<p>{LEARNING.objective}</p>
 			</Learn>
 
-			<p className="section-label">Plant · the physics</p>
+			<SectionLabel>Plant · the physics</SectionLabel>
 			<Panel>
 				<div className="row">
 					<span className="faint">
@@ -104,7 +104,7 @@ const boundaryHits: string[] = []
 			</Panel>
 
 			<section>
-				<p className="section-label">Step 1 · Search space</p>
+				<SectionLabel>Step 1 · Search space</SectionLabel>
 				<Panel>
 					<div className="gain-pair">
 						<div className="gain-card">
@@ -128,7 +128,7 @@ const boundaryHits: string[] = []
 			</section>
 
 			<section>
-				<p className="section-label">Step 2 · Method</p>
+				<SectionLabel>Step 2 · Method</SectionLabel>
 				<Panel>
 					<SelectField
 						label="Search strategy"
@@ -171,7 +171,7 @@ const boundaryHits: string[] = []
 			</section>
 
 			<section>
-				<p className="section-label">Step 3 · Objective</p>
+				<SectionLabel>Step 3 · Objective</SectionLabel>
 				<Panel>
 					<p className="faint reset-top">{LEARNING.formula}</p>
 					<div className="preset-row">
@@ -184,11 +184,13 @@ const boundaryHits: string[] = []
 					<ObjectiveBars weights={weights} onChange={handleWeight} />
 					<p className="faint" style={{ marginBottom: 0, marginTop: "var(--space-3)" }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
 					<div style={{ marginTop: "var(--space-3)" }} className="row">
-						<label className="check-field" style={!w.tracking ? { opacity: 0.45 } : undefined}>
-							<input type="checkbox" checked={w.steadyStateErrorEnabled} disabled={!w.tracking} onChange={(e) => w.update({ steadyStateErrorEnabled: e.target.checked })} />
-							<span>Include steady-state error term</span>
-							<Info text="Adds wᵥ·(e_ss / |r₁|) to J, where e_ss is the analytic steady-state error (k·r₁/(k+Kp) for PD, 0 with feedforward). Encodes the residual tracking offset directly." />
-						</label>
+						<CheckField
+							label="Include steady-state error term"
+							checked={w.steadyStateErrorEnabled}
+							disabled={!w.tracking}
+							onChange={(v) => w.update({ steadyStateErrorEnabled: v })}
+							hint="Adds wᵥ·(e_ss / |r₁|) to J, where e_ss is the analytic steady-state error (k·r₁/(k+Kp) for PD, 0 with feedforward). Encodes the residual tracking offset directly."
+						/>
 						{w.steadyStateErrorEnabled && (
 							<NumberField label="Steady-state error weight" value={w.steadyStateErrorWeight} min={0} step={0.1} onChange={(v) => w.update({ steadyStateErrorWeight: v })} />
 						)}
@@ -197,7 +199,7 @@ const boundaryHits: string[] = []
 			</section>
 
 			<section>
-				<p className="section-label">Step 4 · Constraints (optional)</p>
+				<SectionLabel>Step 4 · Constraints (optional)</SectionLabel>
 				<Panel>
 					<CheckField label="Enforce constraints during search" checked={w.constraintsEnabled}
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
@@ -229,48 +231,54 @@ const boundaryHits: string[] = []
 			{w.optimizerResult ? (
 				<div className="stack">
 					<Panel title="Optimization">
-						<div className="opt-summary">
-							<div className="opt-summary__row">
-								<span>Method</span>
-								<span>{w.optimizerType === 'GRID_SEARCH' ? `Grid search · ${w.gridResolution}×${w.gridResolution} cells` : `Differential evolution · pop ${w.populationSize} × gen ${w.maxIterations}`}</span>
-							</div>
-							<div className="opt-summary__row">
-								<span>Search space</span>
-								<span className="mono">Kp: {fmt(w.gainLower[0], 1)} → {fmt(w.gainUpper[0], 1)} · Kd: {fmt(w.gainLower[1], 1)} → {fmt(w.gainUpper[1], 1)}</span>
-							</div>
-							{w.optimizerType === 'GRID_SEARCH' && (
-								<div className="opt-summary__row">
-									<span>Step</span>
-									<span className="mono">Kp {fmt((w.gainUpper[0] - w.gainLower[0]) / (w.gridResolution - 1), 3)} · Kd {fmt((w.gainUpper[1] - w.gainLower[1]) / (w.gridResolution - 1), 3)}</span>
-								</div>
-							)}
-							<div className="opt-summary__row">
-								<span>Runtime</span>
-								<span className="mono">{fmt(w.optimizerResult.elapsedMillis, 0)} ms · {fmt(w.optimizerResult.evaluations, 0)} evaluations</span>
-							</div>
-							<div className="opt-summary__row">
-								<span>Feasible</span>
-								<span>{w.optimizerResult.feasible ? 'Yes · best candidate found' : 'No feasible candidate in the box'}</span>
-							</div>
-							<div className="opt-summary__row">
-								<span>Best candidate</span>
-								<span className="mono">
-									{result?.feasible
+						<KeyValue
+							rows={[
+								{
+									label: 'Method',
+									value: w.optimizerType === 'GRID_SEARCH' ? `Grid search · ${w.gridResolution}×${w.gridResolution} cells` : `Differential evolution · pop ${w.populationSize} × gen ${w.maxIterations}`,
+								},
+								{
+									label: 'Search space',
+									mono: true,
+									value: <>Kp: {fmt(w.gainLower[0], 1)} → {fmt(w.gainUpper[0], 1)} · Kd: {fmt(w.gainLower[1], 1)} → {fmt(w.gainUpper[1], 1)}</>,
+								},
+								...(w.optimizerType === 'GRID_SEARCH'
+									? [{
+										label: 'Step',
+										mono: true,
+										value: <>Kp {fmt((w.gainUpper[0] - w.gainLower[0]) / (w.gridResolution - 1), 3)} · Kd {fmt((w.gainUpper[1] - w.gainLower[1]) / (w.gridResolution - 1), 3)}</>,
+									}]
+									: []),
+								{
+									label: 'Runtime',
+									mono: true,
+									value: <>{fmt(w.optimizerResult.elapsedMillis, 0)} ms · {fmt(w.optimizerResult.evaluations, 0)} evaluations</>,
+								},
+								{
+									label: 'Feasible',
+									value: w.optimizerResult.feasible ? 'Yes · best candidate found' : 'No feasible candidate in the box',
+								},
+								{
+									label: 'Best candidate',
+									mono: true,
+									value: result?.feasible
 										? `K = [${bestGainLabel}]`
 										: nearMiss
 											? `none feasible · closest was K = [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
-											: 'none feasible in the search box'}
-								</span>
-							</div>
-							<div className="opt-summary__row">
-								<span>Objective</span>
-								<span className="mono">J = {w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</span>
-							</div>
-							<div className="opt-summary__row">
-								<span>Control law</span>
-								<span className="mono">u = −K(x − r){w.feedforward ? ' + k·r₁' : ''} · {w.saturation > 0 ? `u clamped to ±${fmt(w.saturation, 2)} N` : 'u unlimited'}</span>
-							</div>
-						</div>
+											: 'none feasible in the search box',
+								},
+								{
+									label: 'Objective',
+									mono: true,
+									value: <>J = {w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</>,
+								},
+								{
+									label: 'Control law',
+									mono: true,
+									value: <>u = −K(x − r){w.feedforward ? ' + k·r₁' : ''} · {w.saturation > 0 ? `u clamped to ±${fmt(w.saturation, 2)} N` : 'u unlimited'}</>,
+								},
+							]}
+						/>
 					</Panel>
 
 					{infeasible && result?.infeasibleReason && (
@@ -292,15 +300,7 @@ const boundaryHits: string[] = []
 								)}
 								. This gain was rejected, so it is not applied to the plant.
 							</p>
-							<table className="data">
-								<thead>
-									<tr>
-										<th>Constraint missed</th>
-										<th>Achieved</th>
-										<th>Limit</th>
-										<th>Over by</th>
-									</tr>
-								</thead>
+							<DataTable columns={[{ header: 'Constraint missed' }, { header: 'Achieved' }, { header: 'Limit' }, { header: 'Over by' }]}>
 								<tbody>
 									{nearMiss.violatedConstraints.map((c) => (
 										<tr key={c.id} className="row-best">
@@ -315,7 +315,7 @@ const boundaryHits: string[] = []
 										</tr>
 									))}
 								</tbody>
-							</table>
+							</DataTable>
 						</Panel>
 					)}
 
@@ -382,15 +382,7 @@ const boundaryHits: string[] = []
 
 					{constraintReport && hasActiveConstraints && (
 						<Panel title="Constraint report">
-							<table className="data">
-								<thead>
-									<tr>
-										<th>Constraint</th>
-										<th>Achieved</th>
-										<th>Limit</th>
-										<th>Status</th>
-									</tr>
-								</thead>
+							<DataTable columns={[{ header: 'Constraint' }, { header: 'Achieved' }, { header: 'Limit' }, { header: 'Status' }]}>
 								<tbody>
 									{constraintReport.map((c) => (
 										<tr key={c.id} className={c.satisfied ? '' : 'row-best'}>
@@ -401,7 +393,7 @@ const boundaryHits: string[] = []
 										</tr>
 									))}
 								</tbody>
-							</table>
+							</DataTable>
 						</Panel>
 					)}
 
@@ -425,7 +417,7 @@ const boundaryHits: string[] = []
 					)}
 				</div>
 			) : (
-				<div className="empty">Configure the optimizer and run it to see the objective surface, convergence curve, and best gain.</div>
+				<Empty>Configure the optimizer and run it to see the objective surface, convergence curve, and best gain.</Empty>
 			)}
 		</div>
 	)

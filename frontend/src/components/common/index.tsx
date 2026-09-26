@@ -16,7 +16,7 @@ const clean = (n: number) => {
 	return Number.isFinite(v) ? String(v) : '0'
 }
 
-export function BufferedNumberInput({ value, min, max, step = 1, onChange, className, ariaLabel }: {
+export function BufferedNumberInput({ value, min, max, step = 1, onChange, className, ariaLabel, disabled }: {
 	value: number
 	min?: number
 	max?: number
@@ -24,6 +24,7 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 	onChange: (v: number) => void
 	className?: string
 	ariaLabel?: string
+	disabled?: boolean
 }) {
 	const [draft, setDraft] = useState<string | null>(null)
 
@@ -47,7 +48,7 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 
 	return (
 		<span className="num-input">
-			<button type="button" className="num-input__step" tabIndex={-1} aria-label="decrease" onClick={() => bump(-1)}>
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label="decrease" disabled={disabled} onClick={() => bump(-1)}>
 				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>
 			</button>
 			<input
@@ -55,6 +56,7 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 				type="text"
 				inputMode="decimal"
 				value={display}
+				disabled={disabled}
 				onChange={(e) => handleChange(e.target.value)}
 				onBlur={commit}
 				onKeyDown={(e) => {
@@ -65,7 +67,7 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 				}}
 				aria-label={ariaLabel}
 			/>
-			<button type="button" className="num-input__step" tabIndex={-1} aria-label="increase" onClick={() => bump(1)}>
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label="increase" disabled={disabled} onClick={() => bump(1)}>
 				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
 			</button>
 		</span>
@@ -77,11 +79,6 @@ export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBAC
 	const s = n < 0 ? '-' : ''
 	const a = Math.abs(n)
 	return s + a.toLocaleString('en-US', { maximumFractionDigits: digits })
-}
-
-export function fmtCompact(n: number | null | undefined, fallback = FALLBACK): string {
-	if (n === null || n === undefined || Number.isNaN(n) || !Number.isFinite(n)) return fallback
-	return Intl.NumberFormat('en-US', { notation: 'compact' }).format(n)
 }
 
 export function Panel({ title, right, children, className = '' }: {
@@ -101,6 +98,50 @@ export function Panel({ title, right, children, className = '' }: {
 			<div className="panel__body">{children}</div>
 		</section>
 	)
+}
+
+export function DataTable({ columns, children, className = '' }: {
+	columns: readonly { header: ReactNode }[]
+	children: ReactNode
+	className?: string
+}) {
+	return (
+		<div className="table-wrap">
+			<table className={`data ${className}`.trim()}>
+				<thead>
+					<tr>{columns.map((c, i) => <th key={i}>{c.header}</th>)}</tr>
+				</thead>
+				{children}
+			</table>
+		</div>
+	)
+}
+
+/**
+ * Label/value pairs. A definition list rather than a div soup, so the pairing is
+ * exposed to assistive tech instead of being purely visual.
+ */
+export function KeyValue({ rows }: {
+	rows: readonly { label: ReactNode; value: ReactNode; mono?: boolean }[]
+}) {
+	return (
+		<dl className="kv">
+			{rows.map((r) => (
+				<div className="kv__row" key={String(r.label)}>
+					<dt className="kv__label">{r.label}</dt>
+					<dd className={`kv__value ${r.mono === true ? 'mono' : ''}`.trim()}>{r.value}</dd>
+				</div>
+			))}
+		</dl>
+	)
+}
+
+export function Empty({ children }: { children: ReactNode }) {
+	return <div className="empty">{children}</div>
+}
+
+export function SectionLabel({ children }: { children: ReactNode }) {
+	return <p className="section-label">{children}</p>
 }
 
 export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
@@ -189,7 +230,7 @@ export function Learn({ title, children }: { title: string; children: ReactNode 
 	)
 }
 
-export function NumberField({ label, value, onChange, min, max, step, unit, hint }: {
+export function NumberField({ label, value, onChange, min, max, step, unit, hint, disabled }: {
 	label: string
 	value: number
 	onChange: (v: number) => void
@@ -198,22 +239,23 @@ export function NumberField({ label, value, onChange, min, max, step, unit, hint
 	step?: number
 	unit?: string
 	hint?: string
+	disabled?: boolean
 }) {
 	return (
-		<label className="field">
+		<label className={`field ${disabled ? 'is-disabled' : ''}`}>
 			<span className="field__label">
 				{label}
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={step} onChange={onChange} ariaLabel={label} />
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={step} onChange={onChange} ariaLabel={label} disabled={disabled} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>
 	)
 }
 
-export function GainField({ name, value, onChange, min, max, unit, hint }: {
+export function GainField({ name, value, onChange, min, max, unit, hint, disabled }: {
 	name: string
 	value: number
 	onChange: (v: number) => void
@@ -221,35 +263,37 @@ export function GainField({ name, value, onChange, min, max, unit, hint }: {
 	max?: number
 	unit?: string
 	hint?: string
+	disabled?: boolean
 }) {
 	return (
-		<label className="field field--gain">
+		<label className={`field field--gain ${disabled ? 'is-disabled' : ''}`}>
 			<span className="field__label">
 				{name}
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={1} onChange={onChange} ariaLabel={name} />
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={1} onChange={onChange} ariaLabel={name} disabled={disabled} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>
 	)
 }
 
-export function SelectField({ label, value, onChange, options, hint }: {
+export function SelectField({ label, value, onChange, options, hint, disabled }: {
 	label: string
 	value: string
 	onChange: (v: string) => void
 	options: { value: string; label: string }[]
 	hint?: string
+	disabled?: boolean
 }) {
 	return (
-		<label className="field">
+		<label className={`field ${disabled ? 'is-disabled' : ''}`}>
 			<span className="field__label">
 				{label}
 				{hint !== undefined && <Info text={hint} />}
 			</span>
-			<select value={value} onChange={(e) => onChange(e.target.value)}>
+			<select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
 				{options.map((o) => (
 					<option key={o.value} value={o.value}>{o.label}</option>
 				))}
@@ -258,42 +302,59 @@ export function SelectField({ label, value, onChange, options, hint }: {
 	)
 }
 
-export function CheckField({ label, checked, onChange, hint }: {
+export function CheckField({ label, checked, onChange, hint, disabled }: {
 	label: string
 	checked: boolean
 	onChange: (v: boolean) => void
 	hint?: string
+	disabled?: boolean
 }) {
 	return (
-		<label className="check-field">
-			<input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+		<label className={`check-field ${disabled ? 'is-disabled' : ''}`}>
+			<input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
 			<span>{label}</span>
 			{hint !== undefined && <Info text={hint} />}
 		</label>
 	)
 }
 
-export function RadioChip({ label, value, active, onChange, hint }: {
+export function RadioChip({ label, value, active, onChange, hint, disabled }: {
 	label: string
 	value: string
 	active: boolean
 	onChange: (v: string) => void
 	hint?: string
+	disabled?: boolean
 }) {
 	return (
-		<label className={`radio-chip ${active ? 'active' : ''}`}>
-			<input type="radio" name={value} checked={active} onChange={() => onChange(value)} />
+		<label className={`radio-chip ${active ? 'active' : ''} ${disabled ? 'is-disabled' : ''}`}>
+			<input type="radio" name={value} checked={active} disabled={disabled} onChange={() => onChange(value)} />
 			<span>{label}</span>
 			{hint !== undefined && <Info text={hint} />}
 		</label>
 	)
 }
 
-export function Delta({ value, pct }: { value: number; pct: boolean }) {
+/**
+ * A change smaller than this is float noise, not an improvement worth reporting.
+ * Collapsing it to zero is what stops an untouched metric reading as a
+ * sub-0.1% regression, and keeps `-0.0%` off the screen.
+ */
+export const DELTA_DEAD_BAND_PERCENT = 0.5
+
+export function relativeDelta(from: number, to: number): number | null {
+	if (!Number.isFinite(from) || !Number.isFinite(to) || from === 0) return null
+	const rel = ((to - from) / Math.abs(from)) * 100
+	return Math.abs(rel) < DELTA_DEAD_BAND_PERCENT ? 0 : rel
+}
+
+export function Delta({ value, pct, tone }: { value: number; pct: boolean; tone?: 'good' | 'bad' | 'neutral' }) {
 	const v = pct ? Math.abs(value) : value
-	const tone = pct ? 'neutral' : (value <= 0.001 ? 'good' : 'bad')
+	// absolute deltas read "smaller is better", so they threshold; percentages
+	// read off the sign, which the caller can also pin explicitly
+	const resolved = tone ?? (pct ? 'neutral' : (value <= 0.001 ? 'good' : 'bad'))
 	const sign = value > 0 ? '+' : value < 0 ? '−' : ''
-	return <span className={`delta delta--${tone}`}>{pct ? `${sign}${Math.abs(value).toFixed(1)}%` : `${sign}${fmt(v, 3)}`}</span>
+	return <span className={`delta delta--${resolved}`}>{pct ? `${sign}${Math.abs(value).toFixed(1)}%` : `${sign}${fmt(v, 3)}`}</span>
 }
 
 export function ObjectiveBars({ weights, onChange }: {
@@ -337,7 +398,7 @@ export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }:
 	const dash = '\u2014'
 	return (
 		<div className="stack">
-			<p className="faint" style={{ marginTop: 0 }}>
+			<p className="faint reset-top">
 				{breakdown.normalized
 					? 'J = Σ wᵢ·(metricᵢ / scaleᵢ): each term is normalized against a fixed positive scale (IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling by T, overshoot by 100), so J is deterministic and 1.0 on a term means its metric equals that scale. Below 1 is better, above is worse. Weighted contributions sum to J.'
 					: `J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O with raw weighting ${baselineNote ?? '(no manual-gain baseline was used, or the baseline could not be evaluated)'}. When a run never settles, the settling term is penalized as the full horizon.`}
@@ -360,7 +421,7 @@ export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }:
 							<td>{t.name}</td>
 							<td className="mono">{fmt(t.raw, 4)}</td>
 							<td className="mono">{breakdown.normalized ? fmt(t.reference, 4) : dash}</td>
-							<td className={`mono ${breakdown.normalized && t.normalized > 1.0001 ? 'delta--bad' : ''}`}>
+							<td className={`mono ${breakdown.normalized && t.normalized > 1.0001 ? 'delta delta--bad' : ''}`}>
 								{breakdown.normalized ? fmt(t.normalized, 3) : dash}
 							</td>
 							<td className="mono">{fmt(t.weight, 3)}</td>

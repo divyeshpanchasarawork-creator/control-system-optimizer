@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitCompareArrows } from 'lucide-react'
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
-import { Badge, BusyNote, Callout, Learn, MetricCard, ObjectiveBreakdownTable, Panel } from '../components/common'
+import { Badge, BusyNote, Callout, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
 import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
@@ -48,20 +48,6 @@ function displayMetric(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[nu
 
 function allMetricKeys() {
 	return METRIC_GROUPS.flatMap((g) => g.keys)
-}
-
-/** A change smaller than this is float noise, not an improvement worth reporting. */
-const DEAD_BAND_PERCENT = 0.5
-
-/**
- * Percentage change from `from` to `to`, or null when the ratio is undefined.
- * Changes inside the dead band collapse to exactly 0 so an untouched metric
- * never renders as a sub-0.1% regression.
- */
-function relativeDelta(from: number, to: number): number | null {
-	if (!Number.isFinite(from) || !Number.isFinite(to) || from === 0) return null
-	const rel = ((to - from) / Math.abs(from)) * 100
-	return Math.abs(rel) < DEAD_BAND_PERCENT ? 0 : rel
 }
 
 function tradeoffSentence(manual: MetricsResponse, optimized: MetricsResponse): string | null {
@@ -191,35 +177,25 @@ export function CompareTab() {
 			)}
 
 			{(manualSim || optSim) && (
-				<section className="table-wrap">
-					<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
-						<table className="data">
-							<thead>
-								<tr>
-									<th>Metric</th>
-									<th>Manual</th>
-									<th>Optimized</th>
-									<th>Δ</th>
-								</tr>
-							</thead>
-							<tbody>
+				<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
+					<DataTable columns={[{ header: 'Metric' }, { header: 'Manual' }, { header: 'Optimized' }, { header: 'Δ' }]}>
+						<tbody>
 								{METRIC_GROUPS.map((g) => (
 									<GroupRow key={g.label} group={g} manual={manualMetrics} optimized={optMetrics} />
 								))}
 							</tbody>
-						</table>
-					</Panel>
-				</section>
+					</DataTable>
+				</Panel>
 			)}
 
 			{!manualSim && !optSim && (
-				<div className="empty">The comparison starts on its own as soon as an optimization produces a gain.</div>
+				<Empty>The comparison starts on its own as soon as an optimization produces a gain.</Empty>
 			)}
 
 			<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
 				<div className="charts-grid">
 					<ChartGrid manual={manualSim} optimized={optSim} />
-					{(manualSim || optSim) ? null : <div className="empty">Both trajectories appear here once the comparison runs.</div>}
+					{(manualSim || optSim) ? null : <Empty>Both trajectories appear here once the comparison runs.</Empty>}
 				</div>
 			</Panel>
 
@@ -256,7 +232,7 @@ export function CompareTab() {
 							) : null}
 						</>
 					) : (
-						<div className="empty">Run an optimization to get the "why": weights, breakdown, and per-metric deltas.</div>
+						<Empty>Run an optimization to get the "why": weights, breakdown, and per-metric deltas.</Empty>
 					)}
 				</div>
 			</Panel>
@@ -292,7 +268,7 @@ function GroupRow({ group, manual, optimized }: {
 			{group.keys.map((k) => {
 				const m = metricValue(manual, k.key)
 				const o = metricValue(optimized, k.key)
-				const rel = m !== null && o !== null && Number.isFinite(m) && Number.isFinite(o) && m !== 0 ? ((o - m) / Math.abs(m)) * 100 : null
+				const rel = m === null || o === null ? null : relativeDelta(m, o)
 				return (
 					<tr key={k.name}>
 						<td>{k.name}</td>
@@ -300,9 +276,7 @@ function GroupRow({ group, manual, optimized }: {
 						<td className="mono">{displayMetric(optimized, k.key, k.unit)}</td>
 						<td>
 							{rel === null ? <span className="faint">n/a</span> : (
-								<span className={`delta ${rel > 0 ? 'delta--bad' : rel < 0 ? 'delta--good' : 'delta--neutral'}`}>
-									{rel > 0 ? '+' : '−'}{Math.abs(rel).toFixed(1)}%
-								</span>
+								<Delta value={rel} pct tone={rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'} />
 							)}
 						</td>
 					</tr>

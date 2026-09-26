@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 
 import type { MetricSurfaces, SimulationResponse } from '../../api/types'
+import { Empty } from '../common'
 
 export const COLORS = ['#0a84ff', '#32d74b', '#c77800', '#d70015', '#7c3aed', '#0891b2', '#db2777', '#65a30d']
 
@@ -160,7 +161,7 @@ export function PoleZeroChart({ eigenvalues }: { eigenvalues: { real: number; im
 
 export function ConvergenceChart({ points, optimizerType }: { points: { generation: number; bestCost: number | null }[]; optimizerType?: string }) {
 	const plot = points.filter((p): p is { generation: number; bestCost: number } => p.bestCost !== null)
-	if (plot.length === 0) return <div className="empty">No convergence data</div>
+	if (plot.length === 0) return <Empty>No convergence data</Empty>
 	const gMax = Math.max(...plot.map((p) => p.generation))
 	const finalJ = plot[plot.length - 1]?.bestCost
 	const xLabel = optimizerType === 'GRID_SEARCH' ? 'Evaluations' : 'Generations'

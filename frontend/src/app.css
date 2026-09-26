@@ -1115,6 +1115,23 @@
   accent-color: var(--blue);
 }
 
+/* Disabled fields share one dimming rule so every control reads the same way.
+   Only the outermost label is dimmed: nesting the rule would compound opacity. */
+.field.is-disabled,
+.check-field.is-disabled,
+.radio-chip.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.num-input__step:disabled {
+  cursor: not-allowed;
+}
+
+.num-input__step:disabled svg {
+  opacity: 0.5;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -1354,27 +1371,35 @@
   color: var(--text-2);
 }
 
-.opt-summary__row {
+.kv {
+  margin: 0;
+}
+
+.kv__row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 16px;
+  gap: var(--space-4);
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
 
-.opt-summary__row:last-child {
+.kv__row:last-child {
   border-bottom: 0;
 }
 
-.opt-summary__row > span:first-child {
+.kv__label {
   color: var(--text-3);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   font-size: var(--fs-micro);
   font-weight: var(--weight-strong);
   white-space: nowrap;
+}
+
+.kv__value {
+  margin: 0;
 }
 
 .heatmap__cell {
