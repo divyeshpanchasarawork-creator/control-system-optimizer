@@ -200,7 +200,7 @@ export function CompareTab() {
 			)}
 
 			<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
-				<div className="charts-grid">
+				<div className="grid">
 					<ChartGrid manual={manualSim} optimized={optSim} />
 					{(manualSim || optSim) ? null : <Empty>Both trajectories appear here once the comparison runs.</Empty>}
 				</div>
@@ -218,7 +218,7 @@ export function CompareTab() {
 								<p className="faint" style={{ marginTop: -4 }}>{tradeoffSentence(manualMetrics, optMetrics)}</p>
 							)}
 							{manualMetrics && optMetrics ? (
-								<div className="grid-3">
+								<div className="grid grid--3">
 									{METRIC_GROUPS.flatMap((g) => g.keys).map((k) => {
 										const manual = metricValue(manualMetrics, k.key)
 										const optimized = metricValue(optMetrics, k.key)
@@ -248,7 +248,7 @@ export function CompareTab() {
 				<div className="row">
 					<Badge tone={opt.feasible ? 'good' : 'bad'}>{opt.feasible ? 'feasible' : 'infeasible'}</Badge>
 					<Badge tone="neutral">{opt.optimizerType}</Badge>
-					<span className="faint mono">{opt.evaluations} evaluations · {opt.elapsedMillis} ms</span>
+					<span className="faint mono">{fmt(opt.evaluations, 0)} evaluations · {fmt(opt.elapsedMillis, 0)} ms</span>
 				</div>
 			)}
 
@@ -332,7 +332,7 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 		</Panel>,
 	)
 
-	return <div className="charts-grid charts-grid--2">{rows}</div>
+	return <div className="grid grid--2">{rows}</div>
 }
 
 export default CompareTab

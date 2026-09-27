@@ -81,6 +81,10 @@ export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBAC
 	return s + a.toLocaleString('en-US', { maximumFractionDigits: digits })
 }
 
+/**
+ * A titled block of content. The title is an `h2` so the document outline
+ * runs h1 (tab title, in the app header) -> h2 (panel) with no skipped level.
+ */
 export function Panel({ title, right, children, className = '' }: {
 	title?: ReactNode
 	right?: ReactNode
@@ -91,7 +95,7 @@ export function Panel({ title, right, children, className = '' }: {
 		<section className={`panel ${className}`.trim()}>
 			{(title !== undefined || right !== undefined) && (
 				<header className="panel__header">
-					{title !== undefined && <h3 className="panel__title">{title}</h3>}
+					{title !== undefined && <h2 className="panel__title">{title}</h2>}
 					{right}
 				</header>
 			)}
@@ -380,7 +384,9 @@ export function Delta({ value, pct, tone }: { value: number; pct: boolean; tone?
 	// read off the sign, which the caller can also pin explicitly
 	const resolved = tone ?? (pct ? 'neutral' : (value <= 0.001 ? 'good' : 'bad'))
 	const sign = value > 0 ? '+' : value < 0 ? '−' : ''
-	return <span className={`delta delta--${resolved}`}>{pct ? `${sign}${Math.abs(value).toFixed(1)}%` : `${sign}${fmt(v, 3)}`}</span>
+	// both branches go through fmt so thousands group and both follow the
+	// same "not available" contract
+	return <span className={`delta delta--${resolved}`}>{pct ? `${sign}${fmt(Math.abs(value), 1)}%` : `${sign}${fmt(v, 3)}`}</span>
 }
 
 export function ObjectiveBars({ weights, onChange }: {

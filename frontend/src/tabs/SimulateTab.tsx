@@ -122,7 +122,7 @@ export function SimulateTab() {
 			<section>
 				<SectionLabel>Plant · the physics</SectionLabel>
 				<Panel>
-					<div className="form-grid">
+					<div className="grid grid--auto">
 						<NumberField label="Mass" unit="kg" hint="Mass of the moving body (0.1 to 10). Higher mass makes the response slower and less sensitive to the controller."
 							value={w.mass} min={0.1} step={0.1} onChange={(v) => w.update({ mass: v })} />
 						<NumberField label="Damping" unit="N·s/m" hint="Viscous friction. Higher damping (closer to critical) reduces oscillation but can slow the response; 0 is undamped."
@@ -136,7 +136,7 @@ export function SimulateTab() {
 			<section>
 				<SectionLabel>Controller · state feedback</SectionLabel>
 				<Panel>
-					<div className="gain-pair">
+					<div className="grid grid--2">
 						<GainField name="Kp" unit="position" hint="Position (proportional) gain. u = −Kp·(x₁ − r₁) − Kd·(x₂ − ṙ₂). More Kp gives a stiffer, faster response but can cause overshoot or instability."
 							value={gain[0]} min={-50} max={100}
 							onChange={(v) => {
@@ -173,7 +173,7 @@ export function SimulateTab() {
 			<section>
 				<SectionLabel>Reference & simulation</SectionLabel>
 				<Panel>
-					<div className="form-grid">
+					<div className="grid grid--auto">
 						<NumberField label="Reference position" unit="m" hint="Position the controller chases (x₁ reference)."
 							value={w.reference[0]} step={0.1} onChange={(v) => w.update({ reference: [v, w.reference[1]] })} />
 						<NumberField label="Reference velocity" unit="m/s" hint="Velocity reference (x₂)."
@@ -189,7 +189,7 @@ export function SimulateTab() {
 						<NumberField label="Initial velocity" unit="m/s" hint="Starting velocity ẋ(0)."
 							value={w.initialState[1]} step={0.1} onChange={(v) => w.update({ initialState: [w.initialState[0], v] })} />
 					</div>
-					<div style={{ marginTop: 14 }} className="row row--between">
+					<div style={{ marginTop: "var(--space-4)" }} className="row row--between">
 						{busy ? (
 							<BusyNote>Recomputing simulation…</BusyNote>
 						) : (
@@ -202,7 +202,7 @@ export function SimulateTab() {
 				</Panel>
 			</section>
 
-			<div className="charts-grid charts-grid--2a">
+			<div className="grid grid--wide">
 				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (
 					<button type="button" className="btn btn--sm" onClick={() => setPositionFocus((f) => !f)}>Focus on reference</button>
 				) : undefined}>
@@ -228,13 +228,13 @@ export function SimulateTab() {
 				</Panel>
 			</div>
 
-			<div className="charts-grid">
+			<div className="grid">
 				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
 					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 			</div>
 
-			<div className="charts-grid charts-grid--2a">
+			<div className="grid grid--wide">
 				<Panel title="Velocity x₂(t)" className={busy ? 'chart-busy' : ''}>
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <Empty>No simulation yet</Empty>}
 				</Panel>
@@ -245,7 +245,7 @@ export function SimulateTab() {
 
 			{poleInfo && (
 				<Panel title="Pole preview">
-					<div className="grid-3">
+					<div className="grid grid--3">
 						<MetricCard label="Damping ratio ζ" value={poleInfo.zeta === null ? 'n/a' : fmt(poleInfo.zeta, 3)} hint="ζ from the closed-loop poles. Below 1 the response rings, above 1 it crawls. n/a when the poles are real." />
 						<MetricCard label="Natural frequency ωₙ" value={poleInfo.omegaN === null ? 'n/a' : fmt(poleInfo.omegaN, 3)} sub="rad/s" hint="Undamped angular frequency from the pole magnitude." />
 						<MetricCard label="Pole-based settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="A model estimate from the dominant pole (2% rule: 4 / |Re λ|), not the measured settling time. The measured value is under Metrics." />
@@ -258,7 +258,7 @@ export function SimulateTab() {
 					<>
 						<div className="metric-group">
 							<p className="metric-group__label">Tracking quality</p>
-							<div className="grid-3">
+							<div className="grid grid--3">
 								<MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
 								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
 								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
@@ -266,7 +266,7 @@ export function SimulateTab() {
 						</div>
 						<div className="metric-group">
 							<p className="metric-group__label">Transient response</p>
-							<div className="grid-3">
+							<div className="grid grid--3">
 								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricTone(metrics, 'maxAbsError')} />
 								<MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricTone(metrics, 'overshoot')} />
 								<MetricCard hint={`Settling time. When the response stays within the ${settlingBand}% band and never leaves it. "Not reached" means the response never settles within the horizon.`}
@@ -275,7 +275,7 @@ export function SimulateTab() {
 						</div>
 						<div className="metric-group">
 							<p className="metric-group__label">Control signal</p>
-							<div className="grid-3">
+							<div className="grid grid--3">
 								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
 								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
 								<MetricCard hint="Hard limit on |u(t)|. 0 means unlimited." label="Saturation" value={w.saturation > 0 ? `±${fmt(w.saturation, 2)} N` : 'Unlimited'} sub="u clamped" />
@@ -298,11 +298,11 @@ export function SimulateTab() {
 
 			{w.tracking && (
 				<Panel title="Steady-state error">
-					<div className="grid-3">
+					<div className="grid grid--3">
 						<MetricCard label="Measured final error" value={metrics ? fmt(metrics.finalError) : 'n/a'} hint="Measured |r₁ − x₁| at the last sample." />
 						<MetricCard label="Analytic e_ss" value={xSS === null ? 'n/a' : fmt(eSS)} hint="Analytic steady-state error |r₁ − x_ss|; 0 with feedforward." />
 					</div>
-					<p className="faint" style={{ marginTop: 10 }}>
+					<p className="faint" style={{ marginTop: "var(--space-2)" }}>
 						PD-only state feedback leaves the static offset e_ss = k·r₁/(k + Kp); feedforward (+k·r₁) cancels the load so x_ss = r₁ and e_ss = 0.
 					</p>
 				</Panel>

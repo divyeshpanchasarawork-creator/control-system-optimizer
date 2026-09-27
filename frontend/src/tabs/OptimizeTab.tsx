@@ -109,11 +109,11 @@ const boundaryHits: string[] = []
 			<section>
 				<SectionLabel>Step 1 · Search space</SectionLabel>
 				<Panel>
-					<div className="gain-pair">
+					<div className="grid grid--2">
 						<div className="gain-card">
 							<span className="gain-card__label">Kp <span className="faint">position gain</span></span>
 							<span className="gain-card__desc">Search range for the proportional gain.</span>
-							<div className="form-grid">
+							<div className="grid grid--auto">
 								<NumberField label="Min" value={w.gainLower[0]} step={1} min={-100} onChange={(v) => w.update({ gainLower: [v, w.gainLower[1]] })} />
 								<NumberField label="Max" value={w.gainUpper[0]} step={1} min={-100} onChange={(v) => w.update({ gainUpper: [v, w.gainUpper[1]] })} />
 							</div>
@@ -121,7 +121,7 @@ const boundaryHits: string[] = []
 						<div className="gain-card">
 							<span className="gain-card__label">Kd <span className="faint">velocity gain</span></span>
 							<span className="gain-card__desc">Search range for the derivative gain.</span>
-							<div className="form-grid">
+							<div className="grid grid--auto">
 								<NumberField label="Min" value={w.gainLower[1]} step={1} min={-100} onChange={(v) => w.update({ gainLower: [w.gainLower[0], v] })} />
 								<NumberField label="Max" value={w.gainUpper[1]} step={1} min={-100} onChange={(v) => w.update({ gainUpper: [w.gainUpper[0], v] })} />
 							</div>
@@ -145,17 +145,17 @@ const boundaryHits: string[] = []
 					/>
 					{w.optimizerType === 'GRID_SEARCH' ? (
 						<>
-							<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
+							<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
 								<NumberField label="Grid resolution (per dim.)" hint="Samples per gain dimension. Total evaluations = resolution². 41 → 1,681 simulations, 101 → ~10,000."
 									value={w.gridResolution} min={2} max={101} step={1} onChange={(v) => w.update({ gridResolution: Math.round(v) })} />
 								<CheckField label="Return cost surface (2-D grid)" checked={w.includeCostSurface}
 									onChange={(v) => w.update({ includeCostSurface: v })} hint="When on, the response includes the full objective heatmap over the grid, plus per-cell IAE and control energy for the interactive tooltip." />
 							</div>
-							<div style={{ marginTop: 10 }}><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
+							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
 						</>
 					) : (
 						<>
-							<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
+							<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
 								<NumberField label="Population size" hint="Number of candidate gain vectors evolved per generation. Larger = better coverage, more cost per step."
 									value={w.populationSize} min={4} step={2} onChange={(v) => w.update({ populationSize: Math.round(v) })} />
 								<NumberField label="Max iterations" hint="Generations the population is evolved. Stop early when convergence flattens."
@@ -167,7 +167,7 @@ const boundaryHits: string[] = []
 								<NumberField label="Seed" hint="Random seed. The DE run is fully deterministic for a fixed seed and reproducible exactly."
 									value={w.seed} step={1} onChange={(v) => w.update({ seed: Math.round(v) })} />
 							</div>
-							<div style={{ marginTop: 10 }}><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
+							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
 						</>
 					)}
 				</Panel>
@@ -207,7 +207,7 @@ const boundaryHits: string[] = []
 					<CheckField label="Enforce constraints during search" checked={w.constraintsEnabled}
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
 					{w.constraintsEnabled && (
-						<div style={{ marginTop: "var(--space-3)" }} className="form-grid">
+						<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
 							<NumberField label="Peak force" unit="force" hint="Ceiling on the peak actuator command. Candidates exceeding it are infeasible."
 								value={Number.isFinite(w.maxControl) ? w.maxControl : 0} min={0} step={1} onChange={(v) => w.update({ maxControl: v })} />
 							<NumberField label="Max overshoot" unit="%" hint="Ceiling on overshoot percentage."
@@ -341,7 +341,7 @@ const boundaryHits: string[] = []
 					)}
 
 					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
-						<div className="grid-3">
+						<div className="grid grid--3">
 							<MetricCard
 								hint={result?.feasible
 									? 'Best gain vector found, applied as K = (Kp, Kd) for u = −K(x − r).'
@@ -354,7 +354,7 @@ const boundaryHits: string[] = []
 										: 'No feasible gain in range'}
 							/>
 							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
-							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${w.optimizerResult.elapsedMillis} ms`} />
+							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`} />
 							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'} />
 							<MetricCard hint="Grid search always converges (finite box). DE converged when improvement stalled before max iterations." label="Converged" value={w.optimizerResult.converged ? 'Yes' : 'No'} tone={w.optimizerResult.converged ? 'good' : 'neutral'} />
 							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)} />

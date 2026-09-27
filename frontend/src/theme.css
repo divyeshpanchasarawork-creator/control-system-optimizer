@@ -18,6 +18,22 @@
   --red: #d70015;
   --red-soft: #ffecee;
 
+  /* Readable text on a -soft background, plus the hairline that goes with it.
+     Callouts and good/bad metric values need these; without them they were
+     each carrying their own hardcoded hex. */
+  --blue-strong: #00489c;
+  --red-strong: #9d0010;
+  --amber-strong: #8a4b00;
+  --green-strong: #1a7f37;
+  --blue-border: #bcd7fb;
+  --red-border: #f6c3c9;
+  --amber-border: #f6dfb2;
+
+  /* Brand accent, second stop of the logo/wordmark gradient */
+  --brand-accent: #5e5ce6;
+  /* Text/icon colour that sits on top of a solid or gradient accent fill */
+  --on-accent: #ffffff;
+
   /* Chart series: tokenised so plots and the surrounding UI cannot drift apart */
   --chart-green: #32d74b;
   --chart-violet: #7c3aed;
@@ -34,9 +50,15 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
 
-  /* Radii follow a golden-ratio ladder off the 14px body cap (14 -> 22 -> 36) */
-  --radius: 22px;
-  --radius-sm: 14px;
+  /* Radii: a named ladder with a clear job per step.
+     Controls sit at the small end so a 36px button does not read as a pill,
+     containers keep the softer corners that carry the brand. */
+  --radius-xs: 4px;    /* inline code chips, focus ring */
+  --radius-sm: 6px;    /* controls: buttons, inputs, selects */
+  --radius-md: 10px;   /* inner surfaces: tooltips, small cards */
+  --radius-lg: 14px;   /* containers: panels, metric cards, learn blocks */
+  --radius-xl: 22px;   /* large containers: headers, empty states */
+  --radius-full: 999px; /* pills, bars, tags */
 
   /* Spacing is a 4px rhythm, matching the gap sizes the workspace actually uses */
   --space-1: 4px;
@@ -44,6 +66,9 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
 
   --mono: "SF Mono", ui-monospace, "Roboto Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* Apple-style system stack, SF Pro first */
@@ -54,6 +79,11 @@
   --sidebar-w: 264px;
   --sidebar-w-collapsed: 64px;
   --header-h: 60px;
+
+  /* Content column. The workspace is a reading surface, not a full-bleed
+     canvas: past this width the line lengths get uncomfortable. */
+  --page-max: 1200px;
+  --page-pad: 32px;
 
   --ease: cubic-bezier(0.3, 0.8, 0.3, 1);
   --dur: 180ms;
@@ -67,9 +97,12 @@
   --fs-micro: 11px;
   --tracking-tight: -0.02em;
   --tracking-label: 0.02em;
-  --weight-title: 650;
+  /* Three weights, no more. The previous 450/550/640/650 intermediates
+     rendered slightly differently per platform and muddied hierarchy. */
+  --weight-regular: 400;
+  --weight-medium: 500;
   --weight-strong: 600;
-  --weight-regular: 450;
+  --weight-title: 600;
 }
 
 * {
