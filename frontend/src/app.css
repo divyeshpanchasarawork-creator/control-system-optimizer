@@ -259,7 +259,13 @@
   color: var(--text);
 }
 
-@media (max-width: 760px) {
+/* The sidebar becomes an overlay drawer at 900px, not at a phone width.
+   While it stays inline it costs 264px, so at 768px the content column is
+   440px and the default 41x41 cost surface, which needs 526px, scrolls
+   sideways. Worse, the content column was *narrower* just above the old
+   760px threshold than just below it. Below 900 the sidebar is an overlay
+   and costs the content column nothing. */
+@media (max-width: 900px) {
   .main__menu-btn {
     display: inline-flex;
   }
@@ -317,13 +323,11 @@
     display: none;
   }
 
-  .main__body {
-    padding: var(--space-4);
-  }
-
-  .grid--2,
-  .grid--3 {
-    grid-template-columns: 1fr;
+  /* Drive the gutter from the token so the header and the body below it
+     share one left edge. Overriding only the body left the header inset
+     twice as far as the content it titles. */
+  :root {
+    --page-pad: var(--space-4);
   }
 }
 
@@ -1505,9 +1509,23 @@
   background: var(--surface-2);
 }
 
-/* Every multi-column arrangement collapses to one column on narrow viewports.
-   .grid--auto is deliberately absent: it reflows on its own via auto-fill. */
-@media (max-width: 820px) {
+/* ---------- Responsive tiers ----------
+   The sidebar is 264px while it is open, and the page gutter is 32px a side,
+   so the content column gives up 328px before a grid can breathe. That is
+   what sets these tiers rather than round viewport numbers: three columns
+   need real width, two are the laptop case, one is the narrow case.
+   .grid--auto is deliberately absent from all of them: it reflows on its
+   own via auto-fill. */
+@media (max-width: 1279px) {
+  /* Two columns instead of three. At this width a three-up row of readings
+     is left with roughly 220px each, which wraps labels like "Pole-based
+     settling estimate" onto three lines. */
+  .grid--3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
   .grid--2,
   .grid--3,
   .grid--wide {
