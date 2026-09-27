@@ -339,14 +339,12 @@ const boundaryHits: string[] = []
 									? `[${bestGainLabel}]`
 									: nearMiss
 										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
-										: 'No feasible gain in range'}
-								plain
-							/>
-							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}  plain />
-							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`}  plain />
-							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'}  plain />
-							<MetricCard hint="Grid search always converges (finite box). DE converged when improvement stalled before max iterations." label="Converged" value={w.optimizerResult.converged ? 'Yes' : 'No'} tone={w.optimizerResult.converged ? 'good' : 'neutral'}  plain />
-							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)}  plain />
+										: 'No feasible gain in range'}/>
+							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
+							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`} />
+							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'} />
+							<MetricCard hint="Grid search always converges (finite box). DE converged when improvement stalled before max iterations." label="Converged" value={w.optimizerResult.converged ? 'Yes' : 'No'} tone={w.optimizerResult.converged ? 'good' : 'neutral'} />
+							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)} />
 						</div>
 
 						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (

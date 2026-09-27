@@ -250,26 +250,26 @@ export function SimulateTab() {
 						<div className="metric-group">
 							<p className="metric-group__label">Tracking quality</p>
 							<div className="grid grid--3">
-								<MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral"  plain />
-								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt"  plain />
-								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt"  plain />
+								<MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
+								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
+								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
 							</div>
 						</div>
 						<div className="metric-group">
 							<p className="metric-group__label">Transient response</p>
 							<div className="grid grid--3">
-								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricTone(metrics, 'maxAbsError')}  plain />
-								<MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricTone(metrics, 'overshoot')}  plain />
+								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricTone(metrics, 'maxAbsError')} />
+								<MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricTone(metrics, 'overshoot')} />
 								<MetricCard hint={`Settling time. When the response stays within the ${settlingBand}% band and never leaves it. "Not reached" means the response never settles within the horizon.`}
-									label="Settling time" value={metrics.settlingTime === null ? 'Not reached' : `${fmt(metrics.settlingTime)} s`} sub={`${settlingBand}% band`}  plain />
+									label="Settling time" value={metrics.settlingTime === null ? 'Not reached' : `${fmt(metrics.settlingTime)} s`} sub={`${settlingBand}% band`}/>
 							</div>
 						</div>
 						<div className="metric-group">
 							<p className="metric-group__label">Control signal</p>
 							<div className="grid grid--3">
-								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s"  plain />
-								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)}  plain />
-								<MetricCard hint="Hard limit on |u(t)|. 0 means unlimited." label="Saturation" value={w.saturation > 0 ? `±${fmt(w.saturation, 2)} N` : 'Unlimited'} sub="u clamped" plain />
+								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
+								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
+								<MetricCard hint="Hard limit on |u(t)|. 0 means unlimited." label="Saturation" value={w.saturation > 0 ? `±${fmt(w.saturation, 2)} N` : 'Unlimited'} sub="u clamped" />
 							</div>
 						</div>
 					</>

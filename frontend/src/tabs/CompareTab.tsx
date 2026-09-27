@@ -230,9 +230,7 @@ export function CompareTab() {
 												label={k.name}
 												sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
 												value={`${rel > 0 ? '+' : ''}${fmt(rel, 1)}%`}
-												tone={tone}
-												plain
-											/>
+												tone={tone}/>
 										)
 									})}
 								</div>

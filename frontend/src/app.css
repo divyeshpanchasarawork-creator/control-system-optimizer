@@ -503,28 +503,29 @@
   padding: 16px;
 }
 
-/* ---------- Metric cards ---------- */
+/* ---------- Readings ----------
+   A reading is not a surface. It carries no border, fill or shadow: the
+   panel that holds it is the surface, and whitespace plus the group's own
+   rule do the separating. The tone bar sits on the left edge so good and
+   bad stay readable now that there is no top edge to underline. */
 .metric-card {
   position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) 16px;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  box-shadow: 0 1px 2px rgba(29, 29, 31, 0.04);
+  padding: var(--space-3) 0 0;
+  padding-left: var(--space-2);
 }
 
 .metric-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 14px;
-  right: 14px;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: var(--border-strong);
+  top: var(--space-3);
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
   transition: background var(--dur) var(--ease);
 }
 
@@ -534,27 +535,6 @@
 
 .metric-card--bad::before {
   background: var(--red);
-}
-
-/* A reading with no box of its own. The tone bar moves to the left edge so
-   good/bad still reads without a border to sit on, and the extra top padding
-   makes up for the rule that is no longer there. */
-.metric-card--plain {
-  background: none;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  padding: var(--space-3) 0 0;
-}
-
-.metric-card--plain::before {
-  top: var(--space-3);
-  bottom: 0;
-  left: 0;
-  right: auto;
-  width: 2px;
-  height: auto;
-  border-radius: 2px;
 }
 
 .metric-card__label {

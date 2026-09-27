@@ -190,22 +190,22 @@ export function SettlingBandTable({ metrics, empty }: {
 /**
  * A single reading: label, value, optional unit, optional explanation.
  *
- * `plain` drops the border, fill and shadow so a run of readings can sit
- * directly on the panel that holds them, separated by whitespace and the
- * group's own rule instead of by nine more boxes. It keeps the tone accent,
- * the value treatment and the hint popover, so no information is lost.
+ * A reading never gets a box of its own. It sits directly on the panel that
+ * holds it and is separated from its neighbours by whitespace and the group's
+ * rule, so a panel of nine readings is one surface rather than ten. The tone
+ * accent moves to the left edge, which keeps good and bad readable without a
+ * border to sit on, and the hint popover is unchanged.
  */
-export function MetricCard({ label, value, sub, tone = 'neutral', hint, plain = false }: {
+export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 	label: string
 	value: ReactNode
 	sub?: ReactNode
 	tone?: 'good' | 'bad' | 'neutral'
 	hint?: string
-	plain?: boolean
 }) {
 	const [open, setOpen] = useState(false)
 	return (
-		<div className={`metric-card metric-card--${tone}${plain ? ' metric-card--plain' : ''}`}>
+		<div className={`metric-card metric-card--${tone}`}>
 			<span className="metric-card__label">
 				{label}
 				{hint !== undefined && (
