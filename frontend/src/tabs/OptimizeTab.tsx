@@ -38,6 +38,7 @@ function matchesPreset(w: { trackingErrorWeight: number; controlEffortWeight: nu
 
 export function OptimizeTab() {
 	const w = useWorkspace()
+	const busy = w.loading !== null || w.refreshing
 	const surf = w.optimizerResult?.costSurface
 	const metricSurfaces = w.optimizerResult?.metricSurfaces
 	const hasSurface = surf !== null && surf !== undefined && surf.length > 0
@@ -340,7 +341,7 @@ const boundaryHits: string[] = []
 						</div>
 					)}
 
-					<Panel title="Optimization Result" right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
+					<Panel title="Optimization Result" className={busy ? 'chart-busy' : ''} right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid grid--3">
 							<MetricCard
 								hint={result?.feasible
@@ -352,12 +353,13 @@ const boundaryHits: string[] = []
 									: nearMiss
 										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
 										: 'No feasible gain in range'}
+								plain
 							/>
-							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
-							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`} />
-							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'} />
-							<MetricCard hint="Grid search always converges (finite box). DE converged when improvement stalled before max iterations." label="Converged" value={w.optimizerResult.converged ? 'Yes' : 'No'} tone={w.optimizerResult.converged ? 'good' : 'neutral'} />
-							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)} />
+							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}  plain />
+							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`}  plain />
+							<MetricCard hint="Whether any stable, valid gain was found inside the box." label="Feasible" value={w.optimizerResult.feasible ? 'Yes' : 'No'} tone={w.optimizerResult.feasible ? 'good' : 'bad'}  plain />
+							<MetricCard hint="Grid search always converges (finite box). DE converged when improvement stalled before max iterations." label="Converged" value={w.optimizerResult.converged ? 'Yes' : 'No'} tone={w.optimizerResult.converged ? 'good' : 'neutral'}  plain />
+							<MetricCard hint="Random seed used (DE only). Re-run with the same seed reproduces these exact results." label="Seed" value={w.optimizerResult.seed === null ? 'Not used' : fmt(w.optimizerResult.seed, 0)}  plain />
 						</div>
 
 						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (
@@ -374,7 +376,7 @@ const boundaryHits: string[] = []
 					</Panel>
 
 					{breakdown && (
-					<Panel title="Why this objective value?" right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
+					<Panel title="Why this objective value?" className={busy ? 'chart-busy' : ''} right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
 						<ObjectiveBreakdownTable
 							breakdown={breakdown}
 							notSettled={w.optimizerResult?.metrics?.settlingTime === null}
@@ -383,7 +385,7 @@ const boundaryHits: string[] = []
 					</Panel>
 					)}
 
-					<Panel title="Settling time across bands">
+					<Panel title="Settling time across bands" className={busy ? 'chart-busy' : ''}>
 						<p className="faint reset-top">
 							The reported gain measured against each tolerance band. A "Not reached" row means the response never
 							stays inside that band, which is what a residual steady-state offset looks like.
@@ -395,7 +397,7 @@ const boundaryHits: string[] = []
 					</Panel>
 
 					{constraintReport && hasActiveConstraints && (
-						<Panel title="Constraint report">
+						<Panel title="Constraint report" className={busy ? 'chart-busy' : ''}>
 							<DataTable columns={[{ header: 'Constraint' }, { header: 'Achieved' }, { header: 'Limit' }, { header: 'Status' }]}>
 								<tbody>
 									{constraintReport.map((c) => (
@@ -411,12 +413,12 @@ const boundaryHits: string[] = []
 						</Panel>
 					)}
 
-					<Panel title="Convergence">
+					<Panel title="Convergence" className={busy ? 'chart-busy' : ''}>
 						<ConvergenceChart points={w.optimizerResult.convergence} optimizerType={w.optimizerResult.optimizerType} />
 					</Panel>
 
 					{w.optimizerType === 'GRID_SEARCH' && hasSurface && (
-						<Panel title="Interactive cost surface · Kp × Kd"
+						<Panel title="Interactive cost surface · Kp × Kd" className={busy ? 'chart-busy' : ''}
 							right={<Learn title="Read the heatmap"><p>{LEARNING.grid}</p></Learn>}>
 							<CostSurfaceHeatmap
 								surface={surf as (number | null)[][]}

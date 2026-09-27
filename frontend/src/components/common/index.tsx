@@ -104,6 +104,23 @@ export function Panel({ title, right, children, className = '' }: {
 	)
 }
 
+/**
+ * A titled chart with no box of its own.
+ *
+ * Use inside a Panel that already holds the heading: a run of related charts
+ * then reads as one figure rather than a panel nested in a panel, and the
+ * caption keeps the chart identifiable without a second border. When a chart
+ * is the only thing on screen it should be the Panel instead.
+ */
+export function ChartCell({ title, children }: { title: ReactNode; children: ReactNode }) {
+	return (
+		<figure className="chart-cell">
+			<figcaption className="chart-cell__title">{title}</figcaption>
+			{children}
+		</figure>
+	)
+}
+
 export function DataTable({ columns, children, className = '' }: {
 	columns: readonly { header: ReactNode }[]
 	children: ReactNode
@@ -174,16 +191,25 @@ export function SettlingBandTable({ metrics, empty }: {
 	)
 }
 
-export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
+/**
+ * A single reading: label, value, optional unit, optional explanation.
+ *
+ * `plain` drops the border, fill and shadow so a run of readings can sit
+ * directly on the panel that holds them, separated by whitespace and the
+ * group's own rule instead of by nine more boxes. It keeps the tone accent,
+ * the value treatment and the hint popover, so no information is lost.
+ */
+export function MetricCard({ label, value, sub, tone = 'neutral', hint, plain = false }: {
 	label: string
 	value: ReactNode
 	sub?: ReactNode
 	tone?: 'good' | 'bad' | 'neutral'
 	hint?: string
+	plain?: boolean
 }) {
 	const [open, setOpen] = useState(false)
 	return (
-		<div className={`metric-card metric-card--${tone}`}>
+		<div className={`metric-card metric-card--${tone}${plain ? ' metric-card--plain' : ''}`}>
 			<span className="metric-card__label">
 				{label}
 				{hint !== undefined && (

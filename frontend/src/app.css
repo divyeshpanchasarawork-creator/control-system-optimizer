@@ -437,6 +437,22 @@
   grid-template-columns: 1fr 1fr;
 }
 
+/* A chart inside a Panel, captioned but not boxed. Keeps a run of related
+   charts as one figure instead of a panel nested in a panel. */
+.chart-cell {
+  margin: 0;
+  min-width: 0;
+}
+
+.chart-cell__title {
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-strong);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-3);
+  margin: 0 0 var(--space-2);
+}
+
 /* Asymmetric: the primary chart earns the extra width. */
 .grid--wide {
   grid-template-columns: 1.4fr 1fr;
@@ -518,6 +534,27 @@
 
 .metric-card--bad::before {
   background: var(--red);
+}
+
+/* A reading with no box of its own. The tone bar moves to the left edge so
+   good/bad still reads without a border to sit on, and the extra top padding
+   makes up for the rule that is no longer there. */
+.metric-card--plain {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-3) 0 0;
+}
+
+.metric-card--plain::before {
+  top: var(--space-3);
+  bottom: 0;
+  left: 0;
+  right: auto;
+  width: 2px;
+  height: auto;
+  border-radius: 2px;
 }
 
 .metric-card__label {

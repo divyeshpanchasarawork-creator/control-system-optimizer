@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitCompareArrows } from 'lucide-react'
 
-import { Badge, BusyNote, Callout, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
+import { Badge, BusyNote, Callout, ChartCell, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
 import { OverlayChart } from '../components/charts'
 import type { ChartColor } from '../components/charts/palette'
 import { fmt } from '../components/common'
@@ -199,12 +199,11 @@ export function CompareTab() {
 				<Empty>The comparison starts on its own as soon as an optimization produces a gain.</Empty>
 			)}
 
-			<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
-				<div className="grid">
-					<ChartGrid manual={manualSim} optimized={optSim} />
-					{(manualSim || optSim) ? null : <Empty>Both trajectories appear here once the comparison runs.</Empty>}
-				</div>
-			</Panel>
+		<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
+			{(manualSim || optSim)
+				? <ChartGrid manual={manualSim} optimized={optSim} />
+				: <Empty>Both trajectories appear here once the comparison runs.</Empty>}
+		</Panel>
 
 			<Panel title="Why this gain?">
 				<div className="stack">
@@ -232,6 +231,7 @@ export function CompareTab() {
 												sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
 												value={`${rel > 0 ? '+' : ''}${fmt(rel, 1)}%`}
 												tone={tone}
+												plain
 											/>
 										)
 									})}
@@ -315,9 +315,9 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 		const label = dims >= 2 ? (i === 0 ? 'Position' : 'Velocity') : 'State'
 		const unit = dims >= 2 ? (i === 0 ? ' (m)' : ' (m/s)') : ''
 		rows.push(
-			<Panel key={label} title={`${label} over time${unit}`}>
+			<ChartCell key={label} title={`${label} over time${unit}`}>
 				<OverlayChart data={data} series={OVERLAY_SERIES} />
-			</Panel>,
+			</ChartCell>,
 		)
 	}
 
@@ -327,9 +327,9 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 		optimized: optData?.[k]?.control?.[0],
 	}))
 	rows.push(
-		<Panel key="Control" title="Control over time (N)">
+		<ChartCell key="Control" title="Control over time (N)">
 			<OverlayChart data={controlData} series={OVERLAY_SERIES} />
-		</Panel>,
+		</ChartCell>,
 	)
 
 	return <div className="grid grid--2">{rows}</div>
