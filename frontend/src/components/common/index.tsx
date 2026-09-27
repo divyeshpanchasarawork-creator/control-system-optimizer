@@ -161,10 +161,6 @@ export function Empty({ children }: { children: ReactNode }) {
 	return <div className="empty">{children}</div>
 }
 
-export function SectionLabel({ children }: { children: ReactNode }) {
-	return <p className="section-label">{children}</p>
-}
-
 /**
  * Settling time measured at each tolerance band. Simulate and Optimize both
  * report the same bands from the same pass over the trajectory, so they render

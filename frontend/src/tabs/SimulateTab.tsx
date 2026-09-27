@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Badge, BusyNote, CheckField, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SectionLabel, SettlingBandTable } from '../components/common'
+import { Badge, BusyNote, CheckField, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SettlingBandTable } from '../components/common'
 import { fmt } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -119,9 +119,7 @@ export function SimulateTab() {
 				<p>{LEARNING.units}</p>
 			</Learn>
 
-			<section>
-				<SectionLabel>Plant · the physics</SectionLabel>
-				<Panel>
+			<Panel title="Plant · the physics">
 					<div className="grid grid--auto">
 						<NumberField label="Mass" unit="kg" hint="Mass of the moving body (0.1 to 10). Higher mass makes the response slower and less sensitive to the controller."
 							value={w.mass} min={0.1} step={0.1} onChange={(v) => w.update({ mass: v })} />
@@ -130,12 +128,9 @@ export function SimulateTab() {
 						<NumberField label="Spring constant" unit="N/m" hint="Stiffness of the spring (Hooke’s law, F = kx). A stiffer spring raises the natural frequency, making the system faster but harder to stabilize."
 							value={w.springConstant} min={0} step={0.1} onChange={(v) => w.update({ springConstant: v })} />
 					</div>
-				</Panel>
-			</section>
+			</Panel>
 
-			<section>
-				<SectionLabel>Controller · state feedback</SectionLabel>
-				<Panel>
+			<Panel title="Controller · state feedback">
 					<div className="grid grid--2">
 						<GainField name="Kp" unit="position" hint="Position (proportional) gain. u = −Kp·(x₁ − r₁) − Kd·(x₂ − ṙ₂). More Kp gives a stiffer, faster response but can cause overshoot or instability."
 							value={gain[0]} min={-50} max={100}
@@ -167,12 +162,9 @@ export function SimulateTab() {
 							hint="Feedforward adds +k·r₁ to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking."
 						/>
 					</div>
-				</Panel>
-			</section>
+			</Panel>
 
-			<section>
-				<SectionLabel>Reference & simulation</SectionLabel>
-				<Panel>
+			<Panel title="Reference & simulation">
 					<div className="grid grid--auto">
 						<NumberField label="Reference position" unit="m" hint="Position the controller chases (x₁ reference)."
 							value={w.reference[0]} step={0.1} onChange={(v) => w.update({ reference: [v, w.reference[1]] })} />
@@ -199,8 +191,7 @@ export function SimulateTab() {
 							<p>{LEARNING.sim}</p>
 						</Learn>
 					</div>
-				</Panel>
-			</section>
+			</Panel>
 
 			<div className="grid grid--wide">
 				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (

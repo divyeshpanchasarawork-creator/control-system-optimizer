@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SectionLabel, SelectField, SettlingBandTable } from '../components/common'
+import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -96,8 +96,7 @@ const boundaryHits: string[] = []
 				<p>{LEARNING.objective}</p>
 			</Learn>
 
-			<SectionLabel>Plant · the physics</SectionLabel>
-			<Panel>
+			<Panel title="Plant · the physics">
 				<div className="row">
 					<span className="faint">
 						This optimization searches over the plant set in the Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N
@@ -107,9 +106,7 @@ const boundaryHits: string[] = []
 				</div>
 			</Panel>
 
-			<section>
-				<SectionLabel>Step 1 · Search space</SectionLabel>
-				<Panel>
+			<Panel title="Step 1 · Search space">
 					<div className="grid grid--2">
 						<div className="gain-card">
 							<span className="gain-card__label">Kp <span className="faint">position gain</span></span>
@@ -128,12 +125,9 @@ const boundaryHits: string[] = []
 							</div>
 						</div>
 					</div>
-				</Panel>
-			</section>
+			</Panel>
 
-			<section>
-				<SectionLabel>Step 2 · Method</SectionLabel>
-				<Panel>
+			<Panel title="Step 2 · Method">
 					<SelectField
 						label="Search strategy"
 						value={w.optimizerType}
@@ -171,12 +165,9 @@ const boundaryHits: string[] = []
 							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
 						</>
 					)}
-				</Panel>
-			</section>
+			</Panel>
 
-			<section>
-				<SectionLabel>Step 3 · Objective</SectionLabel>
-				<Panel>
+			<Panel title="Step 3 · Objective">
 					<p className="faint reset-top">{LEARNING.formula}</p>
 					<div className="preset-row">
 						{PRESETS.map((p) => (
@@ -199,12 +190,9 @@ const boundaryHits: string[] = []
 							<NumberField label="Steady-state error weight" value={w.steadyStateErrorWeight} min={0} step={0.1} onChange={(v) => w.update({ steadyStateErrorWeight: v })} />
 						)}
 					</div>
-				</Panel>
-			</section>
+			</Panel>
 
-			<section>
-				<SectionLabel>Step 4 · Constraints (optional)</SectionLabel>
-				<Panel>
+			<Panel title="Step 4 · Constraints (optional)">
 					<CheckField label="Enforce constraints during search" checked={w.constraintsEnabled}
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
 					{w.constraintsEnabled && (
@@ -221,8 +209,7 @@ const boundaryHits: string[] = []
 								value={Number.isFinite(w.maxControlEnergy) ? w.maxControlEnergy : 0} min={0} step={1} onChange={(v) => w.update({ maxControlEnergy: v })} />
 						</div>
 					)}
-				</Panel>
-			</section>
+			</Panel>
 
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
 
