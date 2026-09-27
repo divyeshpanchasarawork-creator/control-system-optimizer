@@ -41,3 +41,10 @@ frontend/dist/
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
+
+### Agent scratch space ###
+# Throwaway files go in .scratch/ at the repo root, never in /tmp or another
+# external temp dir. See AGENTS.md. The folder is kept so it always exists;
+# nothing inside it is tracked.
+.scratch/*
+!.scratch/.gitkeep
