@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import {
 	CartesianGrid,
 	Line,
@@ -14,7 +15,7 @@ import {
 } from 'recharts'
 
 import type { MetricSurfaces, SimulationResponse } from '../../api/types'
-import { Empty } from '../common'
+import { Empty, fmt } from '../common'
 import type { ChartColor } from './palette'
 import { chartColors, hatchPattern } from './palette'
 
@@ -249,6 +250,52 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 	const cols = surface[0]?.length ?? 0
 	const [hover, setHover] = useState<{ r: number; c: number } | null>(null)
 
+	// Roving tabindex. A 41x41 surface is 1,681 cells, so making each one a
+	// tab stop would be unusable. Instead the grid is a single tab stop and
+	// the arrow keys move an active cell within it, which is the pattern
+	// APG prescribes for a large 2D data grid. Without this the J / IAE /
+	// control-energy readout was mouse-only.
+	const clampRC = (r: number, c: number) => ({
+		r: Math.max(0, Math.min(rows - 1, r)),
+		c: Math.max(0, Math.min(cols - 1, c)),
+	})
+	const [cursor, setCursor] = useState<{ r: number; c: number } | null>(null)
+	const active = cursor ?? (rows > 0 && cols > 0 ? { r: Math.floor(rows / 2), c: Math.floor(cols / 2) } : null)
+
+	// Roving tabindex only moves the tab stop, not the actual DOM focus, so
+	// the arrow keys would walk the tabIndex ring without the focus ring
+	// following. Pull focus to the new cell after the cursor settles.
+	const gridRef = useRef<HTMLDivElement>(null)
+	useEffect(() => {
+		if (!cursor) return
+		gridRef.current?.querySelector<HTMLElement>(`[data-cell="${cursor.r}-${cursor.c}"]`)?.focus()
+	}, [cursor])
+
+	const moveCursor = (dr: number, dc: number) => {
+		if (!active) return
+		setCursor(clampRC(active.r + dr, active.c + dc))
+	}
+
+	const onGridKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+		if (!active) return
+		let handled = true
+		switch (e.key) {
+			case 'ArrowUp': moveCursor(-1, 0); break
+			case 'ArrowDown': moveCursor(1, 0); break
+			case 'ArrowLeft': moveCursor(0, -1); break
+			case 'ArrowRight': moveCursor(0, 1); break
+			case 'Home': setCursor(clampRC(active.r, 0)); break
+			case 'End': setCursor(clampRC(active.r, cols - 1)); break
+			case 'PageUp': moveCursor(-10, 0); break
+			case 'PageDown': moveCursor(10, 0); break
+			default: handled = false
+		}
+		if (handled) {
+			e.preventDefault()
+			// the cell's own onFocus drives the tooltip, so no hover update here
+		}
+	}
+
 	const { lo, hi } = useMemo(() => {
 		const flat = surface.flat().filter((v): v is number => v !== null && v !== undefined && Number.isFinite(v))
 		return { lo: flat.length ? Math.min(...flat) : 0, hi: flat.length ? Math.max(...flat) : 1 }
@@ -294,7 +341,16 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 
 	return (
 		<div>
-			<div className="heatmap" style={{ display: 'grid', gridTemplateColumns: `34px repeat(${cols}, minmax(10px, 1fr))`, gap: 2 }}>
+			<div
+				ref={gridRef}
+				className="heatmap"
+				role="grid"
+				aria-label={`${kpAxis} against ${kdAxis} objective heatmap. ${rows} by ${cols}. Use the arrow keys to inspect a cell.`}
+				aria-rowcount={rows}
+				aria-colcount={cols}
+				onKeyDown={onGridKeyDown}
+				style={{ display: 'grid', gridTemplateColumns: `34px repeat(${cols}, minmax(10px, 1fr))`, gap: 2 }}
+			>
 				<div />
 				<div style={{ textAlign: 'center', fontSize: 10, color: colors.muted, gridColumn: `2 / -1` }}>
 					{kdAxis} →
@@ -307,9 +363,29 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 						{row.map((val, c) => {
 							const isOpt = optiR === r && optiC === c
 							const isManual = manualR === r && manualC === c
+							const isActive = active?.r === r && active?.c === c
+							const cellJ = val === null || val === undefined || !Number.isFinite(val)
+								? 'infeasible or unstable'
+								: fmt(val, 4)
+							const cellIae = metricSurfaces ? (metricSurfaces.iae[r]?.[c] ?? null) : null
+							const cellEffort = metricSurfaces ? (metricSurfaces.controlEffort[r]?.[c] ?? null) : null
+							const spoken = [
+								`${kpAxis} index ${r}, ${kdAxis} index ${c}`,
+								`J ${cellJ}`,
+								cellIae === null || cellIae === undefined ? null : `IAE ${fmt(cellIae, 3)}`,
+								cellEffort === null || cellEffort === undefined ? null : `control energy ${fmt(cellEffort, 3)}`,
+								isOpt ? 'global optimum' : null,
+								isManual && !isOpt ? 'current gain' : null,
+							].filter(Boolean).join(', ')
 							return (
 								<div
 									key={`${r}-${c}`}
+									data-cell={`${r}-${c}`}
+									role="gridcell"
+									aria-rowindex={r + 1}
+									aria-colindex={c + 2}
+									aria-label={spoken}
+									tabIndex={isActive ? 0 : -1}
 									className="heatmap__cell"
 									style={{
 										aspectRatio: '1',
@@ -319,6 +395,8 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 									}}
 									onMouseEnter={() => setHover({ r, c })}
 									onMouseLeave={() => setHover(null)}
+									onFocus={() => { setCursor({ r, c }); setHover({ r, c }) }}
+									onBlur={() => setHover((h) => (h && h.r === r && h.c === c ? null : h))}
 								>
 									{isOpt && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }} title="global optimum">★</span>}
 									{isManual && !isOpt && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }} title="current / manual gain">●</span>}
@@ -332,9 +410,9 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 			{hover && (
 				<div className="heatmap-tooltip">
 					<span className="mono">Kp ~ row {hover.r}, Kd ~ col {hover.c}</span>
-					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : ` ${Number(hoverJ).toFixed(4)}`}</span>
-					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : Number(hoverIae).toFixed(3)}</span>}
-					{metricSurfaces && <span><b>Control energy (U = ∫u² dt)</b> = {hoverEffort === null || hoverEffort === undefined ? 'n/a' : Number(hoverEffort).toFixed(3)}</span>}
+					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : fmt(hoverJ, 4)}</span>
+					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : fmt(hoverIae, 3)}</span>}
+					{metricSurfaces && <span><b>Control energy (U = ∫u² dt)</b> = {hoverEffort === null || hoverEffort === undefined ? 'n/a' : fmt(hoverEffort, 3)}</span>}
 				</div>
 			)}
 

@@ -48,8 +48,8 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 
 	return (
 		<span className="num-input">
-			<button type="button" className="num-input__step" tabIndex={-1} aria-label="decrease" disabled={disabled} onClick={() => bump(-1)}>
-				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M5 12h14" /></svg>
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label={ariaLabel ? `decrease ${ariaLabel}` : 'decrease'} disabled={disabled} onClick={() => bump(-1)}>
+				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true"><path d="M5 12h14" /></svg>
 			</button>
 			<input
 				className={className}
@@ -67,8 +67,8 @@ export function BufferedNumberInput({ value, min, max, step = 1, onChange, class
 				}}
 				aria-label={ariaLabel}
 			/>
-			<button type="button" className="num-input__step" tabIndex={-1} aria-label="increase" disabled={disabled} onClick={() => bump(1)}>
-				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
+			<button type="button" className="num-input__step" tabIndex={-1} aria-label={ariaLabel ? `increase ${ariaLabel}` : 'increase'} disabled={disabled} onClick={() => bump(1)}>
+				<svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
 			</button>
 		</span>
 	)

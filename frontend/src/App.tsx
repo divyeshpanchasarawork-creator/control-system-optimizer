@@ -21,6 +21,28 @@ const TAB_META: Record<TabId, { label: string; badge: string; icon: typeof Activ
 
 const LS_KEY = 'cso.sidebar.collapsed'
 
+/**
+ * Single announcement channel for the whole app.
+ *
+ * Every busy state in the lab is a text swap inside a chart panel or a
+ * callout, and none of it was reachable by a screen reader: there was no
+ * live region anywhere, so a 120-second optimization was completely silent.
+ * This mirrors the existing visual loading text into one polite region, and
+ * routes errors to an assertive one.
+ */
+function LiveStatus({ loading, refreshing, error }: { loading: string | null; refreshing: boolean; error: string | null }) {
+	return (
+		<>
+			<div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+				{loading ?? (refreshing ? 'Updating results' : '')}
+			</div>
+			<div className="sr-only" role="alert" aria-live="assertive" aria-atomic="true">
+				{error ?? ''}
+			</div>
+		</>
+	)
+}
+
 const TAB_FROM_HASH: Record<string, TabId | undefined> = {
 	'#/lab/simulate': 'simulate',
 	'#/lab/optimize': 'optimize',
@@ -88,6 +110,7 @@ export default function App() {
 
 	return (
 		<div className="app">
+			<LiveStatus loading={w.loading} refreshing={w.refreshing} error={w.error} />
 			<Toaster
 				position="bottom-right"
 				toastOptions={{
