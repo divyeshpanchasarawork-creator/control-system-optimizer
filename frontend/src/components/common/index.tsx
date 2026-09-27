@@ -144,6 +144,32 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 	return <p className="section-label">{children}</p>
 }
 
+/**
+ * Settling time measured at each tolerance band. Simulate and Optimize both
+ * report the same bands from the same pass over the trajectory, so they render
+ * it through this one table. Typed structurally to keep this module free of API
+ * imports.
+ */
+export function SettlingBandTable({ metrics, empty }: {
+	metrics?: { settlingTimeByBand?: { bandPercent: number; time: number | null }[] } | null
+	empty: string
+}) {
+	const bands = metrics?.settlingTimeByBand
+	if (!bands?.length) return <Empty>{empty}</Empty>
+	return (
+		<DataTable columns={[{ header: 'Band' }, { header: 'Measured settling time' }]}>
+			<tbody>
+				{bands.map((b) => (
+					<tr key={b.bandPercent}>
+						<td>{b.bandPercent}% of |r|</td>
+						<td>{b.time === null ? 'Not reached' : `${fmt(b.time, 3)} s`}</td>
+					</tr>
+				))}
+			</tbody>
+		</DataTable>
+	)
+}
+
 export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 	label: string
 	value: ReactNode

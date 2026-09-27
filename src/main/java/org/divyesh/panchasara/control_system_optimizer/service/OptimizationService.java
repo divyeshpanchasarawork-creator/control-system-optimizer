@@ -146,8 +146,9 @@ public class OptimizationService {
 		ObjectiveBreakdown breakdown = metrics == null ? null : objective.breakdown(evaluation.trajectory(), metrics,
 				evaluation.steadyStateError());
 		MetricsResponse metricsResponse = metrics == null ? null
-				: MetricsResponse.from(metrics, List.of(), evaluation.steadyStateError() == null ? null
-						: steadyStatePosition(evaluation.steadyStateError(), simulation.reference()[0]),
+				: MetricsResponse.from(metrics, evaluation.settlingBands(),
+						evaluation.steadyStateError() == null ? null
+								: steadyStatePosition(evaluation.steadyStateError(), simulation.reference()[0]),
 						evaluation.steadyStateError());
 		return new OptimizationResponse(result.optimizerType(), evaluation.gains(),
 				Double.isFinite(evaluation.cost()) ? evaluation.cost() : null, result.evaluations(),
@@ -174,7 +175,8 @@ public class OptimizationService {
 		ControlProblemFactory.DetailedEvaluation evaluation =
 				problemFactory.evaluateCandidate(system, tracking, feedforward, simulation, objective, constraints, gains);
 		PerformanceMetrics metrics = evaluation.metrics();
-		return new NearestMissResponse(gains, metrics == null ? null : MetricsResponse.from(metrics),
+		return new NearestMissResponse(gains,
+				metrics == null ? null : MetricsResponse.from(metrics, evaluation.settlingBands()),
 				violatedConstraints(constraints, evaluation));
 	}
 

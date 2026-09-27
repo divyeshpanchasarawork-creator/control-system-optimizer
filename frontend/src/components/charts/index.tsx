@@ -15,29 +15,66 @@ import {
 
 import type { MetricSurfaces, SimulationResponse } from '../../api/types'
 import { Empty } from '../common'
-
-export const COLORS = ['#0a84ff', '#32d74b', '#c77800', '#d70015', '#7c3aed', '#0891b2', '#db2777', '#65a30d']
+import type { ChartColor } from './palette'
+import { chartColors, hatchPattern } from './palette'
 
 const fmtTick = (v: unknown) => (typeof v === 'number' ? String(Number(v.toFixed(2))) : String(v))
+
+/** Recharts renders `null` as a gap; a masked 0 would draw a dive to zero. */
+const fmtValue = (value: unknown, digits: number) => (typeof value === 'number' ? value.toFixed(digits) : '--')
+const tooltipValue = (value: unknown, name: unknown, digits = 3) => [fmtValue(value, digits), String(name)] as [string, string]
+
+/**
+ * Two or more series over a shared time axis. Compare uses this three times
+ * (each state dimension, plus control) and previously inlined recharts for it.
+ */
+export function OverlayChart({ data, series, height = 180 }: {
+	data: Record<string, number | null | undefined>[]
+	series: { key: string; name: string; color: ChartColor; dashed?: boolean }[]
+	height?: number
+}) {
+	const c = chartColors()
+	return (
+		<ResponsiveContainer width="100%" height={height}>
+			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke={c.axis} />
+				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={48} />
+				{series.map((s) => (
+					<Line
+						key={s.key}
+						name={s.name}
+						dataKey={s.key}
+						stroke={c[s.color]}
+						dot={false}
+						strokeWidth={2.2}
+						strokeDasharray={s.dashed ? '6 4' : undefined}
+						isAnimationActive={false}
+					/>
+				))}
+			</LineChart>
+		</ResponsiveContainer>
+	)
+}
 
 export function TrajectoryChart({ response, kind }: { response: SimulationResponse; kind: 'position' | 'velocity' | 'control' }) {
 	const data = response.trajectory || []
 	const idx = kind === 'position' ? 0 : kind === 'velocity' ? 1 : 0
 	const yLabel = kind === 'position' ? 'Position (m)' : kind === 'velocity' ? 'Velocity (m/s)' : 'u (N)'
-	const color = kind === 'position' ? '#0a84ff' : kind === 'velocity' ? '#32d74b' : '#c77800'
+	const c = chartColors()
+	const color = kind === 'position' ? c.blue : kind === 'velocity' ? c.green : c.amber
 	const signalName = kind === 'position' ? 'Position' : kind === 'velocity' ? 'Velocity' : 'Control'
 
 	const signalKey = kind === 'control'
-		? (p: { time: number; control?: number[] }) => p.control?.[0] ?? 0
-		: (p: { time: number; state: number[] }) => p.state[idx] ?? 0
+		? (p: { time: number; control?: number[] }) => p.control?.[0] ?? null
+		: (p: { time: number; state: number[] }) => p.state[idx] ?? null
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
 			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
-				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
-				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} />
+				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
+				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
+				<Tooltip formatter={(value, name) => tooltipValue(value, name)} />
 				{kind !== 'control' && data[0]?.reference?.[idx] !== undefined && (
 					<Line
 						name="Reference"
@@ -63,7 +100,8 @@ export function PositionChart({ response, band, xSS, focused }: {
 	focused: boolean
 }) {
 	const data = response.trajectory || []
-	const color = '#0a84ff'
+	const c = chartColors()
+	const color = c.blue
 	const r1 = data[0]?.reference?.[0]
 	const refMag = Math.abs(r1 ?? 0)
 	const bandAbs = (band / 100) * refMag
@@ -80,10 +118,10 @@ export function PositionChart({ response, band, xSS, focused }: {
 	return (
 		<ResponsiveContainer width="100%" height={200}>
 			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
-				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} domain={yDomain} label={{ value: 'Position (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
-				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} />
+				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
+				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} domain={yDomain} label={{ value: 'Position (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
+				<Tooltip formatter={(value, name) => tooltipValue(value, name)} />
 				{data[0]?.reference?.[0] !== undefined && (
 					<Line
 						name="Reference"
@@ -97,16 +135,16 @@ export function PositionChart({ response, band, xSS, focused }: {
 					/>
 				)}
 				{xSS !== null && xSS !== r1 && (
-					<ReferenceLine y={xSS} stroke="#7c3aed" strokeDasharray="2 6" ifOverflow="extendDomain" />
+					<ReferenceLine y={xSS} stroke={c.violet} strokeDasharray="2 6" ifOverflow="extendDomain" />
 				)}
 				{showBand && (
 					<>
-						<ReferenceArea y1={bandLow} y2={bandHigh} fill="#0a84ff" fillOpacity={0.06} stroke="#0a84ff" strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
-						<ReferenceLine y={bandLow} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
-						<ReferenceLine y={bandHigh} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceArea y1={bandLow} y2={bandHigh} fill={c.blue} fillOpacity={0.06} stroke={c.blue} strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
+						<ReferenceLine y={bandLow} stroke={c.blue} strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceLine y={bandHigh} stroke={c.blue} strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
 					</>
 				)}
-				<Line name="Position" dataKey={(p: { state: number[] }) => p.state?.[0] ?? 0} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+				<Line name="Position" dataKey={(p: { state: number[] }) => p.state?.[0] ?? null} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
 			</LineChart>
 		</ResponsiveContainer>
 	)
@@ -117,24 +155,37 @@ export function ErrorChart({ response, band }: { response: SimulationResponse; b
 	const refMag = Math.abs(data[0]?.reference?.[0] ?? 0)
 	const bandAbs = (band / 100) * refMag
 	const showBand = bandAbs > 0 && refMag > 0
-	const color = '#d70015'
+	const c = chartColors()
+	const color = c.red
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
 			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke="#a3a3ad" />
-				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={52} label={{ value: 'e (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 8 }} />
-				<Tooltip formatter={(value, name) => [Number(value ?? 0).toFixed(3), name]} labelFormatter={(t) => `t = ${Number(t).toFixed(2)} s`} />
+				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
+				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: 'e (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
+				<Tooltip formatter={(value, name) => tooltipValue(value, name)} labelFormatter={(t) => `t = ${Number(t).toFixed(2)} s`} />
 				{showBand && (
 					<>
-						<ReferenceArea y1={-bandAbs} y2={bandAbs} fill="#0a84ff" fillOpacity={0.06} stroke="#0a84ff" strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
-						<ReferenceLine y={-bandAbs} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
-						<ReferenceLine y={bandAbs} stroke="#0a84ff" strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceArea y1={-bandAbs} y2={bandAbs} fill={c.blue} fillOpacity={0.06} stroke={c.blue} strokeOpacity={0.4} strokeDasharray="4 4" ifOverflow="extendDomain" />
+						<ReferenceLine y={-bandAbs} stroke={c.blue} strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
+						<ReferenceLine y={bandAbs} stroke={c.blue} strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
 					</>
 				)}
-				<ReferenceLine y={0} stroke="#c8c8d0" strokeWidth={1} />
-				<Line name="Error e(t)" dataKey={(p: { state: number[]; reference?: number[] }) => (p.reference?.[0] ?? 0) - (p.state?.[0] ?? 0)} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+				<ReferenceLine y={0} stroke={c.zero} strokeWidth={1} />
+				<Line
+					name="Error e(t)"
+					dataKey={(p: { state: number[]; reference?: number[] }) => {
+						const r = p.reference?.[0]
+						const x = p.state?.[0]
+						return r === undefined || x === undefined ? null : r - x
+					}}
+					stroke={color}
+					dot={false}
+					strokeWidth={2.2}
+					strokeLinecap="round"
+					isAnimationActive={false}
+				/>
 			</LineChart>
 		</ResponsiveContainer>
 	)
@@ -144,16 +195,17 @@ export function PoleZeroChart({ eigenvalues }: { eigenvalues: { real: number; im
 	const points = eigenvalues.map((e, i) => ({ x: e.real, y: e.imag, i }))
 	const maxAbs = Math.max(1, ...points.map((p) => Math.max(Math.abs(p.x), Math.abs(p.y))))
 	const lim = maxAbs * 1.25
+	const c = chartColors()
 
 	return (
 		<ResponsiveContainer width="100%" height={240}>
 			<ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<ReferenceLine x={0} stroke="#d70015" strokeWidth={1.5} strokeDasharray="4 4" label={{ value: 'stability edge', fontSize: 10, fill: '#d70015', position: 'top' }} />
-				<XAxis type="number" dataKey="x" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke="#a3a3ad" name="Re" label={{ value: 'Re(λ)', position: 'insideBottomRight', fontSize: 11, fill: '#a3a3ad', dx: 4 }} />
-				<YAxis type="number" dataKey="y" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke="#a3a3ad" name="Im" label={{ value: 'Im(λ)', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dy: -4 }} />
-				<Scatter data={points} fill="#0a84ff" isAnimationActive={false} shape="cross" />
-				<Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v) => [Number(v).toFixed(3), 'Re/Im']} />
+				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+				<ReferenceLine x={0} stroke={c.red} strokeWidth={1.5} strokeDasharray="4 4" label={{ value: 'stability edge', fontSize: 10, fill: c.red, position: 'top' }} />
+				<XAxis type="number" dataKey="x" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke={c.axis} name="Re" label={{ value: 'Re(λ)', position: 'insideBottomRight', fontSize: 11, fill: c.axis, dx: 4 }} />
+				<YAxis type="number" dataKey="y" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke={c.axis} name="Im" label={{ value: 'Im(λ)', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dy: -4 }} />
+				<Scatter data={points} fill={c.blue} isAnimationActive={false} shape="cross" />
+				<Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v) => tooltipValue(v, 'Re/Im')} />
 			</ScatterChart>
 		</ResponsiveContainer>
 	)
@@ -165,19 +217,20 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 	const gMax = Math.max(...plot.map((p) => p.generation))
 	const finalJ = plot[plot.length - 1]?.bestCost
 	const xLabel = optimizerType === 'GRID_SEARCH' ? 'Evaluations' : 'Generations'
+	const c = chartColors()
 
 	const annotated = finalJ !== undefined
 	return (
 		<ResponsiveContainer width="100%" height={220}>
 			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }}>
-				<CartesianGrid strokeDasharray="3 3" stroke="#e6e6ec" />
-				<XAxis dataKey="generation" type="number" domain={[0, gMax]} tick={{ fontSize: 11 }} stroke="#a3a3ad" label={{ value: xLabel, position: 'insideBottomRight', fontSize: 11, fill: '#a3a3ad', dy: 6 }} />
-				<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={56} label={{ value: 'Best objective J', angle: -90, position: 'insideLeft', fontSize: 11, fill: '#a3a3ad', dx: 10 }} />
+				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+				<XAxis dataKey="generation" type="number" domain={[0, gMax]} tick={{ fontSize: 11 }} stroke={c.axis} label={{ value: xLabel, position: 'insideBottomRight', fontSize: 11, fill: c.axis, dy: 6 }} />
+				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={56} label={{ value: 'Best objective J', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 10 }} />
 				{annotated && (
-					<ReferenceLine y={finalJ} stroke="#0a84ff" strokeDasharray="4 4" label={{ value: `final J = ${Number(finalJ).toFixed(4)}`, fontSize: 11, fill: '#0a84ff', position: 'insideBottomLeft' }} />
+					<ReferenceLine y={finalJ} stroke={c.blue} strokeDasharray="4 4" label={{ value: `final J = ${Number(finalJ).toFixed(4)}`, fontSize: 11, fill: c.blue, position: 'insideBottomLeft' }} />
 				)}
-				<Tooltip formatter={(v) => [Number(v).toFixed(4), 'Best J']} labelFormatter={(l) => `${xLabel.replace(/s$/, '')} ${l}`} />
-				<Line dataKey="bestCost" name="Best J" stroke="#32d74b" dot={false} strokeWidth={2.2} isAnimationActive={false} />
+				<Tooltip formatter={(v) => tooltipValue(v, 'Best J', 4)} labelFormatter={(l) => `${xLabel.replace(/s$/, '')} ${l}`} />
+				<Line dataKey="bestCost" name="Best J" stroke={c.green} dot={false} strokeWidth={2.2} isAnimationActive={false} />
 			</LineChart>
 		</ResponsiveContainer>
 	)
@@ -201,9 +254,10 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 		return { lo: flat.length ? Math.min(...flat) : 0, hi: flat.length ? Math.max(...flat) : 1 }
 	}, [surface])
 	const range = hi - lo || 1
+	const colors = chartColors()
 
 	const cell = (val: number | null | undefined) => {
-		if (val === null || val === undefined || !Number.isFinite(val)) return 'repeating-linear-gradient(45deg, #f4f4f7 0 4px, #ececf1 4px 8px)'
+		if (val === null || val === undefined || !Number.isFinite(val)) return hatchPattern(colors)
 		const t = (val - lo) / range
 		const hue = 210 - t * 165
 		return `hsla(${hue}, 78%, ${92 - t * 44}%, 1)`
@@ -242,12 +296,12 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 		<div>
 			<div className="heatmap" style={{ display: 'grid', gridTemplateColumns: `34px repeat(${cols}, minmax(10px, 1fr))`, gap: 2 }}>
 				<div />
-				<div style={{ textAlign: 'center', fontSize: 10, color: '#8e8e93', gridColumn: `2 / -1` }}>
+				<div style={{ textAlign: 'center', fontSize: 10, color: colors.muted, gridColumn: `2 / -1` }}>
 					{kdAxis} →
 				</div>
 				{surface.map((row, r) => (
 					<Fragment key={r}>
-						<div style={{ fontSize: 10, color: '#8e8e93', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
+						<div style={{ fontSize: 10, color: colors.muted, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 6 }}>
 							{r === Math.floor(rows / 2) ? <span style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>← {kpAxis}</span> : ''}
 						</div>
 						{row.map((val, c) => {
@@ -260,7 +314,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 									style={{
 										aspectRatio: '1',
 										background: cell(val),
-										boxShadow: isOpt ? 'inset 0 0 0 2px #1d1d1f' : isManual ? 'inset 0 0 0 2px #0a84ff' : undefined,
+										boxShadow: isOpt ? `inset 0 0 0 2px ${colors.ink}` : isManual ? `inset 0 0 0 2px ${colors.blue}` : undefined,
 										position: 'relative',
 									}}
 									onMouseEnter={() => setHover({ r, c })}
@@ -276,7 +330,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 			</div>
 
 			{hover && (
-				<div className="heatmap-tooltip" style={{ marginTop: 10, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface-2)', display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12.5 }}>
+				<div className="heatmap-tooltip">
 					<span className="mono">Kp ~ row {hover.r}, Kd ~ col {hover.c}</span>
 					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : ` ${Number(hoverJ).toFixed(4)}`}</span>
 					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : Number(hoverIae).toFixed(3)}</span>}
@@ -287,7 +341,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 			<div className="heatmap-legend-row" style={{ marginTop: 8 }}>
 				<span><span className="swatch" style={{ background: cell(lo) }} /> low J</span>
 				<span><span className="swatch" style={{ background: cell(hi) }} /> high J</span>
-				<span><span className="swatch" style={{ background: 'repeating-linear-gradient(45deg,#f4f4f7 0 4px,#ececf1 4px 8px)' }} /> infeasible / unstable</span>
+				<span><span className="swatch" style={{ background: hatchPattern(colors) }} /> infeasible / unstable</span>
 				<span>★ optimum</span>
 				<span>● current</span>
 			</div>

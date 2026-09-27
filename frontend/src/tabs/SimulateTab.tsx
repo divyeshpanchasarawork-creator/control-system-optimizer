@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Badge, BusyNote, CheckField, DataTable, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SectionLabel } from '../components/common'
+import { Badge, BusyNote, CheckField, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SectionLabel, SettlingBandTable } from '../components/common'
 import { fmt } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -309,21 +309,8 @@ export function SimulateTab() {
 			)}
 
 			<Panel title="Settling time across bands">
-				<p className="faint reset-top">The same run measured against four tolerance bands. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
-				{metrics?.settlingTimeByBand?.length ? (
-					<DataTable columns={[{ header: 'Band' }, { header: 'Measured settling time' }]}>
-						<tbody>
-							{metrics.settlingTimeByBand.map((b) => (
-								<tr key={b.bandPercent}>
-									<td>{b.bandPercent}% of |r|</td>
-									<td>{b.time === null ? 'Not reached' : `${fmt(b.time, 3)} s`}</td>
-								</tr>
-							))}
-						</tbody>
-					</DataTable>
-				) : (
-					<Empty>Run a simulation to see settling at each band.</Empty>
-				)}
+				<p className="faint reset-top">The same run measured against each tolerance band. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
+				<SettlingBandTable metrics={metrics} empty="Run a simulation to see settling at each band." />
 			</Panel>
 
 			<Panel title="Settling-time band">

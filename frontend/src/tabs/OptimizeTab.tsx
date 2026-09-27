@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SectionLabel, SelectField } from '../components/common'
+import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SectionLabel, SelectField, SettlingBandTable } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -81,6 +81,9 @@ const boundaryHits: string[] = []
 	const result = w.optimizerResult
 	const infeasible = result != null && !result.feasible
 	const nearMiss = infeasible ? (result?.nearestMiss ?? null) : null
+	// Bands come from whichever candidate the response actually reports on, so
+	// the infeasible card describes the nearest miss rather than nothing.
+	const reportedMetrics = infeasible ? nearMiss?.metrics ?? null : w.optimizerResult?.metrics ?? null
 	// a rejected gain must never be shown as "the best gain", so the two cases
 	// are labelled separately instead of sharing one formatter
 	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')
@@ -379,6 +382,17 @@ const boundaryHits: string[] = []
 						/>
 					</Panel>
 					)}
+
+					<Panel title="Settling time across bands">
+						<p className="faint reset-top">
+							The reported gain measured against each tolerance band. A "Not reached" row means the response never
+							stays inside that band, which is what a residual steady-state offset looks like.
+						</p>
+						<SettlingBandTable
+							metrics={reportedMetrics}
+							empty={infeasible ? 'No nearest candidate to measure bands on.' : 'No settling bands to report for this result.'}
+						/>
+					</Panel>
 
 					{constraintReport && hasActiveConstraints && (
 						<Panel title="Constraint report">

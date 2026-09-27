@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitCompareArrows } from 'lucide-react'
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 import { Badge, BusyNote, Callout, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
+import { OverlayChart } from '../components/charts'
+import type { ChartColor } from '../components/charts/palette'
 import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
@@ -49,6 +50,12 @@ function displayMetric(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[nu
 function allMetricKeys() {
 	return METRIC_GROUPS.flatMap((g) => g.keys)
 }
+
+/** Manual vs optimized, drawn the same way on every Compare plot. */
+const OVERLAY_SERIES: { key: string; name: string; color: ChartColor; dashed?: boolean }[] = [
+	{ key: 'manual', name: 'Manual K', color: 'blue' },
+	{ key: 'optimized', name: 'Optimized K', color: 'amber', dashed: true },
+]
 
 function tradeoffSentence(manual: MetricsResponse, optimized: MetricsResponse): string | null {
 	// only metrics that actually moved are counted, so "3 of 5" cannot be
@@ -288,8 +295,8 @@ function GroupRow({ group, manual, optimized }: {
 
 function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; optimized: SimulationResponse | null }) {
 	const sources = [
-		{ label: 'Manual', data: manual?.trajectory, color: '#0a84ff' },
-		{ label: 'Optimized', data: optimized?.trajectory, color: '#c77800' },
+		{ label: 'Manual', data: manual?.trajectory },
+		{ label: 'Optimized', data: optimized?.trajectory },
 	].filter((s) => s?.data) as { label: 'Manual' | 'Optimized'; data: { time: number; state: number[]; control?: number[] }[] }[]
 
 	const manualData = sources.find((s) => s.label === 'Manual')?.data
@@ -309,14 +316,7 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 		const unit = dims >= 2 ? (i === 0 ? ' (m)' : ' (m/s)') : ''
 		rows.push(
 			<Panel key={label} title={`${label} over time${unit}`}>
-				<ResponsiveContainer width="100%" height={180}>
-					<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-						<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
-						<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={48} />
-						<Line name="Manual K" dataKey="manual" stroke="#0a84ff" dot={false} strokeWidth={2.2} isAnimationActive={false} />
-						<Line name="Optimized K" dataKey="optimized" stroke="#c77800" dot={false} strokeWidth={2.2} strokeDasharray="6 4" isAnimationActive={false} />
-					</LineChart>
-				</ResponsiveContainer>
+				<OverlayChart data={data} series={OVERLAY_SERIES} />
 			</Panel>,
 		)
 	}
@@ -328,14 +328,7 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 	}))
 	rows.push(
 		<Panel key="Control" title="Control over time (N)">
-			<ResponsiveContainer width="100%" height={180}>
-				<LineChart data={controlData} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-					<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke="#a3a3ad" />
-					<YAxis tick={{ fontSize: 11 }} stroke="#a3a3ad" width={48} />
-					<Line name="Manual K" dataKey="manual" stroke="#0a84ff" dot={false} strokeWidth={2.2} isAnimationActive={false} />
-					<Line name="Optimized K" dataKey="optimized" stroke="#c77800" dot={false} strokeWidth={2.2} strokeDasharray="6 4" isAnimationActive={false} />
-				</LineChart>
-			</ResponsiveContainer>
+			<OverlayChart data={controlData} series={OVERLAY_SERIES} />
 		</Panel>,
 	)
 

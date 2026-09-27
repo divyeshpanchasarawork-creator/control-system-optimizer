@@ -1,7 +1,10 @@
 package org.divyesh.panchasara.control_system_optimizer.service;
 
+import java.util.List;
+
 import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceAnalyzer;
 import org.divyesh.panchasara.control_system_optimizer.analysis.PerformanceMetrics;
+import org.divyesh.panchasara.control_system_optimizer.analysis.SettlingBandResult;
 import org.divyesh.panchasara.control_system_optimizer.analysis.StabilityAnalyzer;
 import org.divyesh.panchasara.control_system_optimizer.analysis.StabilityResult;
 import org.divyesh.panchasara.control_system_optimizer.analysis.SteadyStateResolver;
@@ -162,7 +165,7 @@ public final class ControlProblemFactory {
 			StabilityResult stability = stabilityAnalyzer.analyze(closedLoop.acl());
 			if (!stability.stable()) {
 				return new DetailedEvaluation(controller, stability, null, null, Double.POSITIVE_INFINITY, constraints,
-						null);
+						null, List.of());
 			}
 			SimulationSetup setup = new SimulationSetup(system, controller, simulation.initialState(),
 					simulation.reference(), simulation.startTime(), simulation.endTime(), simulation.timeStep(),
@@ -170,22 +173,26 @@ public final class ControlProblemFactory {
 			Trajectory trajectory = simulator.simulate(setup);
 			PerformanceMetrics metrics =
 					performanceAnalyzer.analyze(trajectory, simulation.settlingBandFraction());
+			// Display only: the same bands the Simulate tab shows. Deliberately
+			// kept out of the objective and the constraint report below.
+			List<SettlingBandResult> settlingBands =
+					performanceAnalyzer.settlingBands(trajectory, PerformanceAnalyzer.DISPLAY_BANDS_PERCENT);
 			Double steadyStateError = SteadyStateResolver
 					.resolve(gains, springConstant, simulation.reference()[0], tracking, feedforward).eSS();
 			double cost = objective.evaluate(trajectory, metrics, steadyStateError);
 			if (Double.isNaN(cost) || cost == Double.NEGATIVE_INFINITY) {
 				return new DetailedEvaluation(controller, stability, metrics, trajectory, Double.POSITIVE_INFINITY,
-						constraints, steadyStateError);
+						constraints, steadyStateError, settlingBands);
 			}
 			Constraints.ConstraintReport report = constraints == null ? null
 					: constraints.check(metrics.maxControl(), metrics.overshoot(), metrics.settlingTime(),
 							metrics.controlEffort(), steadyStateError);
 			if (report != null && !allSatisfied(report)) {
 				return new DetailedEvaluation(controller, stability, metrics, trajectory, Double.POSITIVE_INFINITY,
-						constraints, steadyStateError);
+						constraints, steadyStateError, settlingBands);
 			}
 			return new DetailedEvaluation(controller, stability, metrics, trajectory, cost, constraints,
-					steadyStateError);
+					steadyStateError, settlingBands);
 		} catch (RuntimeException e) {
 			return DetailedEvaluation.infeasible(constraints);
 		}
@@ -210,10 +217,11 @@ public final class ControlProblemFactory {
 		final double cost;
 		final Constraints constraints;
 		final Double steadyStateError;
+		final List<SettlingBandResult> settlingBands;
 
 		private DetailedEvaluation(StateFeedbackController controller, StabilityResult stability,
 				PerformanceMetrics metrics, Trajectory trajectory, double cost, Constraints constraints,
-				Double steadyStateError) {
+				Double steadyStateError, List<SettlingBandResult> settlingBands) {
 			this.controller = controller;
 			this.stability = stability;
 			this.metrics = metrics;
@@ -221,10 +229,11 @@ public final class ControlProblemFactory {
 			this.cost = cost;
 			this.constraints = constraints;
 			this.steadyStateError = steadyStateError;
+			this.settlingBands = settlingBands;
 		}
 
 		static DetailedEvaluation infeasible(Constraints constraints) {
-			return new DetailedEvaluation(null, null, null, null, Double.POSITIVE_INFINITY, constraints, null);
+			return new DetailedEvaluation(null, null, null, null, Double.POSITIVE_INFINITY, constraints, null, List.of());
 		}
 
 		public boolean feasible() {
@@ -254,6 +263,11 @@ public final class ControlProblemFactory {
 		/** Analytic steady-state tracking error magnitude, or null when not applicable. */
 		public Double steadyStateError() {
 			return steadyStateError;
+		}
+
+		/** Settling time at each displayed tolerance band, for reporting only. */
+		public List<SettlingBandResult> settlingBands() {
+			return settlingBands;
 		}
 
 		/** The constraint report for this candidate, or null when not enforced. */
