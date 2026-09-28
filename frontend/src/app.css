@@ -997,6 +997,80 @@
   padding: 1px var(--space-1);
 }
 
+/* ---------- Disclosure (advanced settings) ----------
+   Same family as .learn: a bordered, collapsible block with a hairline
+   between trigger and body. It differs in weight rather than in language.
+   The label is quiet, and the summary carries the current values so a
+   collapsed group still reports what the run is using. */
+.disclosure {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.disclosure--open {
+  background: var(--surface);
+}
+
+.disclosure__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.disclosure__trigger:hover {
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.disclosure__label {
+  font-size: 13px;
+  font-weight: var(--weight-strong);
+  color: var(--text-2);
+  flex: 0 0 auto;
+}
+
+/* The summary is the reason hiding these settings is safe: it keeps the
+   current values on screen when the group is closed. */
+.disclosure__summary {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disclosure__chevron {
+  display: inline-flex;
+  color: var(--text-3);
+  flex: 0 0 auto;
+  transition: transform var(--dur) var(--ease);
+}
+
+.disclosure--open .disclosure__chevron {
+  transform: rotate(180deg);
+}
+
+.disclosure__body {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.disclosure__body .grid--auto {
+  gap: var(--space-3);
+}
+
 /* ---------- Info tooltip ---------- */
 .info {
   position: relative;

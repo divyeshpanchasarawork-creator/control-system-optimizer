@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
@@ -254,6 +254,7 @@ export function Info({ text }: { text: string }) {
 
 export function Learn({ title, children }: { title: string; children: ReactNode }) {
 	const [open, setOpen] = useState(false)
+	const reduceMotion = useReducedMotion()
 	return (
 		<div className="learn">
 			<button type="button" className="learn__summary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -272,7 +273,60 @@ export function Learn({ title, children }: { title: string; children: ReactNode 
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: 'auto', opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
-						transition={{ duration: 0.22, ease: 'easeOut' }}
+						transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: 'easeOut' }}
+					>
+						{children}
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</div>
+	)
+}
+
+/**
+ * Settings that most runs never change, tucked behind a summary line.
+ *
+ * Use this for advanced parameters, not for explanation: `Learn` is the
+ * explainer, this one hides controls. The summary is the reason it is safe to
+ * hide them, because a collapsed group that says nothing leaves the reader
+ * unable to tell whether the run is using the values they think it is. The
+ * panel heading names the group and the trigger reports how many fields it
+ * holds, so the count is available to assistive tech even while collapsed.
+ */
+export function Disclosure({ label, summary, count, defaultOpen = false, children }: {
+	label: string
+	summary?: ReactNode
+	count?: number
+	defaultOpen?: boolean
+	children: ReactNode
+}) {
+	const [open, setOpen] = useState(defaultOpen)
+	const reduceMotion = useReducedMotion()
+	return (
+		<div className={`disclosure${open ? ' disclosure--open' : ''}`}>
+			<button
+				type="button"
+				className="disclosure__trigger"
+				onClick={() => setOpen((o) => !o)}
+				aria-expanded={open}
+			>
+				<span className="disclosure__label">{label}</span>
+				{count !== undefined && <span className="sr-only"> {count} settings</span>}
+				{summary !== undefined && !open && <span className="disclosure__summary mono">{summary}</span>}
+				<span className="disclosure__chevron" aria-hidden="true">
+					<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+						<path d="M6 9l6 6 6-6" />
+					</svg>
+				</span>
+			</button>
+			<AnimatePresence initial={false}>
+				{open && (
+					<motion.div
+						className="disclosure__body"
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: 'auto', opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: 'easeOut' }}
 					>
 						{children}
 					</motion.div>

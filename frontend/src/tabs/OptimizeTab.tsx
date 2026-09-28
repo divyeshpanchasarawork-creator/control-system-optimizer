@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, DataTable, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
+import { CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
 import { fmt } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -150,17 +150,25 @@ const boundaryHits: string[] = []
 						</>
 					) : (
 						<>
-							<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
-								<NumberField label="Population size" hint="Number of candidate gain vectors evolved per generation. Larger = better coverage, more cost per step."
-									value={w.populationSize} min={4} step={2} onChange={(v) => w.update({ populationSize: Math.round(v) })} />
-								<NumberField label="Max iterations" hint="Generations the population is evolved. Stop early when convergence flattens."
-									value={w.maxIterations} min={1} step={10} onChange={(v) => w.update({ maxIterations: Math.round(v) })} />
-								<NumberField label="Differential weight F" hint="Mutation factor, typically 0.5 to 1. Higher F = more exploratory; lower = closer to parent."
-									value={w.differentialWeight} min={0} max={2} step={0.05} onChange={(v) => w.update({ differentialWeight: v })} />
-								<NumberField label="Crossover rate CR" hint="Probability a trial vector inherits a mutated gene. Higher CR = more aggressive mixing."
-									value={w.crossoverRate} min={0} max={1} step={0.05} onChange={(v) => w.update({ crossoverRate: v })} />
-								<NumberField label="Seed" hint="Random seed. The DE run is fully deterministic for a fixed seed and reproducible exactly."
-									value={w.seed} step={1} onChange={(v) => w.update({ seed: Math.round(v) })} />
+							<div style={{ marginTop: "var(--space-3)" }}>
+								<Disclosure
+									label="Advanced parameters"
+									summary={`pop ${w.populationSize} · gen ${w.maxIterations} · F ${fmt(w.differentialWeight, 2)} · CR ${fmt(w.crossoverRate, 2)} · seed ${w.seed}`}
+									count={5}
+								>
+									<div className="grid grid--auto">
+										<NumberField label="Population size" hint="Number of candidate gain vectors evolved per generation. Larger = better coverage, more cost per step."
+											value={w.populationSize} min={4} step={2} onChange={(v) => w.update({ populationSize: Math.round(v) })} />
+										<NumberField label="Max iterations" hint="Generations the population is evolved. Stop early when convergence flattens."
+											value={w.maxIterations} min={1} step={10} onChange={(v) => w.update({ maxIterations: Math.round(v) })} />
+										<NumberField label="Differential weight F" hint="Mutation factor, typically 0.5 to 1. Higher F = more exploratory; lower = closer to parent."
+											value={w.differentialWeight} min={0} max={2} step={0.05} onChange={(v) => w.update({ differentialWeight: v })} />
+										<NumberField label="Crossover rate CR" hint="Probability a trial vector inherits a mutated gene. Higher CR = more aggressive mixing."
+											value={w.crossoverRate} min={0} max={1} step={0.05} onChange={(v) => w.update({ crossoverRate: v })} />
+										<NumberField label="Seed" hint="Random seed. The DE run is fully deterministic for a fixed seed and reproducible exactly."
+											value={w.seed} step={1} onChange={(v) => w.update({ seed: Math.round(v) })} />
+									</div>
+								</Disclosure>
 							</div>
 							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
 						</>
