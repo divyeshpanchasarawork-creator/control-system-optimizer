@@ -101,6 +101,23 @@ export interface OptimizerSpec {
 	includeCostSurface?: boolean
 }
 
+/**
+ * The gains, method and control-law settings that a run was actually launched
+ * with. Carried alongside the response so result panels can describe the run
+ * that produced the numbers instead of re-reading the live form, which the user
+ * may edit after the run finishes.
+ */
+export interface OptimizeRunConfig {
+	optimizerType: OptimizerType
+	gridResolution: number
+	populationSize: number
+	maxIterations: number
+	gainLower: number[]
+	gainUpper: number[]
+	feedforward: boolean
+	saturation: number
+}
+
 export interface ObjectiveSpec {
 	trackingErrorWeight: number
 	controlEffortWeight: number

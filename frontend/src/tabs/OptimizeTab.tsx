@@ -45,8 +45,19 @@ export function OptimizeTab() {
 	const activePreset = matchesPreset(w)
 	const breakdown = w.optimizerResult?.objectiveBreakdown
 	const constraintReport = w.optimizerResult?.constraints
-
-const boundaryHits: string[] = []
+	// The result describes the run it was launched with, so bound/step/method
+	// reads prefer the request-time snapshot over the live form, which the user
+	// may have edited since the run finished.
+	const cfg = w.optimizerConfig
+	const runType = cfg?.optimizerType ?? w.optimizerType
+	const runGridResolution = cfg?.gridResolution ?? w.gridResolution
+	const runPopulation = cfg?.populationSize ?? w.populationSize
+	const runIterations = cfg?.maxIterations ?? w.maxIterations
+	const runLower = cfg?.gainLower ?? w.gainLower
+	const runUpper = cfg?.gainUpper ?? w.gainUpper
+	const runFeedforward = cfg?.feedforward ?? w.feedforward
+	const runSaturation = cfg?.saturation ?? w.saturation
+	const boundaryHits: string[] = []
 	if (w.optimizerResult?.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 2) {
 		const axes: { label: string; index: number }[] = [
 			{ label: 'Kp', index: 0 },
@@ -54,8 +65,8 @@ const boundaryHits: string[] = []
 		]
 		for (const axis of axes) {
 			const best = w.optimizerResult.bestGain[axis.index]
-			if (Math.abs(best - w.gainLower[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (lower edge)`)
-			else if (Math.abs(best - w.gainUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (upper edge)`)
+			if (Math.abs(best - runLower[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (lower edge)`)
+			else if (Math.abs(best - runUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (upper edge)`)
 		}
 	}
 	const boundaryHit = w.optimizerResult?.boundaryHit ?? false
@@ -234,18 +245,18 @@ const boundaryHits: string[] = []
 							rows={[
 								{
 									label: 'Method',
-									value: w.optimizerType === 'GRID_SEARCH' ? `Grid search · ${w.gridResolution}×${w.gridResolution} cells` : `Differential evolution · pop ${w.populationSize} × gen ${w.maxIterations}`,
+									value: runType === 'GRID_SEARCH' ? `Grid search · ${runGridResolution}×${runGridResolution} cells` : `Differential evolution · pop ${runPopulation} × gen ${runIterations}`,
 								},
 								{
 									label: 'Search space',
 									mono: true,
-									value: <>Kp: {fmt(w.gainLower[0], 1)} → {fmt(w.gainUpper[0], 1)} · Kd: {fmt(w.gainLower[1], 1)} → {fmt(w.gainUpper[1], 1)}</>,
+									value: <>Kp: {fmt(runLower[0], 1)} → {fmt(runUpper[0], 1)} · Kd: {fmt(runLower[1], 1)} → {fmt(runUpper[1], 1)}</>,
 								},
-								...(w.optimizerType === 'GRID_SEARCH'
+								...(runType === 'GRID_SEARCH'
 									? [{
 										label: 'Step',
 										mono: true,
-										value: <>Kp {fmt((w.gainUpper[0] - w.gainLower[0]) / (w.gridResolution - 1), 3)} · Kd {fmt((w.gainUpper[1] - w.gainLower[1]) / (w.gridResolution - 1), 3)}</>,
+										value: <>Kp {fmt((runUpper[0] - runLower[0]) / (runGridResolution - 1), 3)} · Kd {fmt((runUpper[1] - runLower[1]) / (runGridResolution - 1), 3)}</>,
 									}]
 									: []),
 								{
@@ -274,7 +285,7 @@ const boundaryHits: string[] = []
 								{
 									label: 'Control law',
 									mono: true,
-									value: <>u = −K(x − r){w.feedforward ? ' + k·r₁' : ''} · {w.saturation > 0 ? `u clamped to ±${fmt(w.saturation, 2)} N` : 'u unlimited'}</>,
+									value: <>u = −K(x − r){runFeedforward ? ' + k·r₁' : ''} · {runSaturation > 0 ? `u clamped to ±${fmt(runSaturation, 2)} N` : 'u unlimited'}</>,
 								},
 							]}
 						/>
@@ -410,7 +421,7 @@ const boundaryHits: string[] = []
 						<ConvergenceChart points={w.optimizerResult.convergence} optimizerType={w.optimizerResult.optimizerType} />
 					</Panel>
 
-					{w.optimizerType === 'GRID_SEARCH' && hasSurface && (
+					{runType === 'GRID_SEARCH' && hasSurface && (
 						<Panel title="Interactive cost surface · Kp × Kd" className={busy ? 'chart-busy' : ''}
 							right={<Learn title="Read the heatmap"><p>{LEARNING.grid}</p></Learn>}>
 							<CostSurfaceHeatmap
@@ -419,8 +430,8 @@ const boundaryHits: string[] = []
 								metricSurfaces={metricSurfaces ?? undefined}
 								optimum={w.optimizerResult.feasible ? w.optimizerResult.bestGain : undefined}
 								manual={(w.useOptimized ? w.optimizedGain : w.manualGain) ?? undefined}
-								gainBounds={{ lower: [...w.gainLower], upper: [...w.gainUpper] }}
-								resolution={[w.gridResolution, w.gridResolution]}
+								gainBounds={{ lower: [...runLower], upper: [...runUpper] }}
+								resolution={[runGridResolution, runGridResolution]}
 							/>
 						</Panel>
 					)}

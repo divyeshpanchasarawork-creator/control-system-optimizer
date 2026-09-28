@@ -104,12 +104,16 @@ export function CompareTab() {
 		saturation: w.saturation,
 	})
 	const ranKeyRef = useRef<string | null>(null)
+	// Mirrors `pending` for the auto-run effect, which must not add a dep on the
+	// state itself or it would re-fire on every tick of the busy flag.
+	const inFlightRef = useRef(false)
 
 	const manualMetrics = manualSim?.metrics ?? null
 	const optMetrics = optSim?.metrics ?? opt?.metrics ?? null
 
 	const runBoth = useCallback(async () => {
 		setPending(true)
+		inFlightRef.current = true
 		w.update({ error: null })
 		try {
 			const [m, o] = await Promise.all([
@@ -119,21 +123,31 @@ export function CompareTab() {
 			setManualSim(m)
 			setOptSim(o)
 			setRan(true)
-			ranKeyRef.current = inputKey
 		} catch (e) {
 			if (e instanceof Error && e.name === 'AbortError') return
+			// Clear the pair so a failure cannot leave the previous comparison on
+			// screen under text claiming it matches the current model.
+			setManualSim(null)
+			setOptSim(null)
+			setRan(false)
 			w.update({ error: e instanceof Error ? e.message : String(e) })
 		} finally {
+			inFlightRef.current = false
 			setPending(false)
 		}
-	}, [inputKey, w.manualGain, w.optimizedGain, w.simulateGain, w.update])
+	}, [w.manualGain, w.optimizedGain, w.simulateGain, w.update])
 
 	const runRef = useRef(runBoth)
 	runRef.current = runBoth
 
 	useEffect(() => {
 		if (!ready) return
+		if (inFlightRef.current) return
 		if (ranKeyRef.current === inputKey) return
+		// Claim the key up front. Assigning it after the await left a window in
+		// which an edit re-entered this effect and queued a second, overlapping
+		// pair of simulations.
+		ranKeyRef.current = inputKey
 		const id = setTimeout(() => { void runRef.current() }, 400)
 		return () => clearTimeout(id)
 	}, [ready, inputKey])

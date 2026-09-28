@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { api } from '../api/client'
 import type {
 	OptimizationResponse,
+	OptimizeRunConfig,
 	OptimizerType,
 	SimulationResponse,
 	StabilityResponse,
@@ -59,6 +60,8 @@ export interface WorkspaceState {
 	simulation: SimulationResponse | null
 	stability: StabilityResponse | null
 	optimizerResult: OptimizationResponse | null
+	/** The form settings the current optimizerResult was launched with. */
+	optimizerConfig: OptimizeRunConfig | null
 
 	loading: string | null
 	refreshing: boolean
@@ -133,6 +136,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [simulation, setSimulation] = useState<SimulationResponse | null>(null)
 	const [stability, setStability] = useState<StabilityResponse | null>(null)
 	const [optimizerResult, setOptimizerResult] = useState<OptimizationResponse | null>(null)
+	const [optimizerConfig, setOptimizerConfig] = useState<OptimizeRunConfig | null>(null)
 
 	const [loading, setLoading] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
@@ -176,7 +180,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 			})
 			setSimulation(res)
 		} catch (e) {
-			if (!isAbortError(e)) setError(errorMessage(e))
+			// Drop the previous result rather than leaving it on screen. The
+			// panels label their numbers with the *current* gain, so keeping the
+			// old response would silently attribute stale metrics to new gains.
+			if (!isAbortError(e)) {
+				setSimulation(null)
+				setStability(null)
+				setError(errorMessage(e))
+			}
 		} finally {
 			if (silent) endSilent()
 			else setLoading(null)
@@ -225,6 +236,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const runOptimization = useCallback(async () => {
 		setLoading('Optimizing gains…')
 		setError(null)
+		// Snapshot the exact settings this run is launched with. The form stays
+		// live while the search runs and after it lands, so panels that describe
+		// the run must not read the live values back.
+		const config: OptimizeRunConfig = {
+			optimizerType,
+			gridResolution,
+			populationSize,
+			maxIterations,
+			gainLower: [...gainLower],
+			gainUpper: [...gainUpper],
+			feedforward,
+			saturation,
+		}
 		try {
 			const system = {
 				type: 'SPRING_DAMPER' as const,
@@ -264,8 +288,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
 			})
 			setOptimizerResult(res)
-			if (res.feasible && Array.isArray(res.bestGain) && res.bestGain.length >= 1) {
-				setOptimizedGain([res.bestGain[0] ?? 0, res.bestGain[1] ?? res.bestGain[0] ?? 0])
+			setOptimizerConfig(config)
+			// A feasible result must carry a full two-gain vector before it is
+			// allowed to replace the manual gain; never fabricate the missing
+			// axis from the one that was returned.
+			if (res.feasible && Array.isArray(res.bestGain) && res.bestGain.length >= 2) {
+				setOptimizedGain([res.bestGain[0], res.bestGain[1]])
 			}
 		} catch (e) {
 			if (!isAbortError(e)) setError(errorMessage(e))
@@ -284,6 +312,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		setSimulation(null)
 		setStability(null)
 		setOptimizerResult(null)
+		setOptimizerConfig(null)
 		setOptimizedGain(null)
 		setUseOptimized(false)
 		setError(null)
@@ -324,15 +353,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		setControlEffortWeight(0.1)
 		setSettlingTimeWeight(0.5)
 		setOvershootWeight(0.5)
-		setSteadyStateErrorEnabled(false)
+setSteadyStateErrorEnabled(false)
 		setSteadyStateErrorWeight(1)
 		setSimulation(null)
 		setStability(null)
 		setOptimizerResult(null)
+		setOptimizerConfig(null)
 		setError(null)
 	}, [])
 
 	const update = useCallback((patch: Partial<WorkspaceState>) => {
+		if (patch.error !== undefined) setError(patch.error)
 		if (patch.mass !== undefined) setMass(patch.mass)
 		if (patch.damping !== undefined) setDamping(patch.damping)
 		if (patch.springConstant !== undefined) setSpringConstant(patch.springConstant)
@@ -412,6 +443,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		simulation,
 		stability,
 		optimizerResult,
+		optimizerConfig,
 		loading,
 		refreshing,
 		error,
