@@ -64,14 +64,18 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 			let steps = Math.round(elapsed / dt)
 			const s = stateRef.current
 			const { m: mass, c, k: springK, kp: p, kd: d } = params
+			// Same law the trace views use, feedforward included. Without the
+			// kff*r term there is no integral action, so the hero would park
+			// below the reference instead of tracking it.
+			const kff = params.kff ?? springK
 			while (steps-- > 0) {
 				const x1 = s.position
 				const x2 = s.velocity
-				const u = -p * (x1 - REF) - d * x2
+				const u = -p * (x1 - REF) - d * x2 + kff * REF
 				const a1 = (-springK * x1 - c * x2 + u) / mass
 				const v2 = s.velocity + dt * a1
 				const x3 = x1 + dt * v2
-				const u2 = -p * (x3 - REF) - d * v2
+				const u2 = -p * (x3 - REF) - d * v2 + kff * REF
 				const a2 = (-springK * x3 - c * v2 + u2) / mass
 				s.position = x1 + (dt / 2) * (v2 + (v2 + dt * a2))
 				s.velocity = x2 + (dt / 2) * (a1 + a2)

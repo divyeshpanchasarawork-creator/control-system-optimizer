@@ -1,18 +1,13 @@
 import { useMemo, useState } from 'react'
-import { closedLoopPoles, settleTime, simulateClosedLoop, zetaOmega } from './LandingSim'
+import { analyzeResponse, closedLoopPoles, simulateClosedLoop, zetaOmega } from './LandingSim'
 import PoleMini from './hero/PoleMini'
 import { StepTraceView, pointsToPath } from './TraceView'
 
 const PLANT = { m: 1, k: 2, c: 0.5 }
 const REF = 1
 const T_MAX = 8
+const BAND = 5
 const BASELINE = { ...PLANT, kp: 3, kd: 0.3 }
-
-function overshoot(points: { position: number }[], ref: number): number {
-	let peak = -Infinity
-	for (const p of points) peak = Math.max(peak, p.position)
-	return peak > ref ? ((peak - ref) / ref) * 100 : 0
-}
 
 export function TuneSection() {
 	const [kp, setKp] = useState(12)
@@ -21,10 +16,11 @@ export function TuneSection() {
 	const params = useMemo(() => ({ ...PLANT, kp, kd }), [kp, kd])
 	const response = useMemo(() => simulateClosedLoop(params, REF, [0, 0], T_MAX), [params])
 	const baseline = useMemo(() => simulateClosedLoop(BASELINE, REF, [0, 0], T_MAX), [])
+	// Measured off the same samples the trace draws, so the readout and the
+	// curve on screen can never describe different runs.
+	const metrics = useMemo(() => analyzeResponse(response, REF, BAND), [response])
 	const { zeta, omegaN } = zetaOmega(params)
-	const settle = settleTime(params, REF, 5, 20)
 	const poles = closedLoopPoles(params)
-	const os = overshoot(response, REF)
 
 	return (
 		<div className="tune">
@@ -76,11 +72,11 @@ export function TuneSection() {
 				</div>
 				<div className="tune__metric">
 					<span className="tune__metric-label">Overshoot</span>
-					<span className="tune__metric-value mono">{os.toFixed(1)}%</span>
+					<span className="tune__metric-value mono">{metrics.overshoot.toFixed(1)}%</span>
 				</div>
 				<div className="tune__metric">
-					<span className="tune__metric-label">Settle (5%)</span>
-					<span className="tune__metric-value mono">{settle === null || settle > T_MAX ? 'Not reached' : `${settle.toFixed(2)} s`}</span>
+					<span className="tune__metric-label">Settle ({BAND}%)</span>
+					<span className="tune__metric-value mono">{metrics.settle === null ? 'Not reached' : `${metrics.settle.toFixed(2)} s`}</span>
 				</div>
 				<PoleMini poles={poles} />
 			</div>

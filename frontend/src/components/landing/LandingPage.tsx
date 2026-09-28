@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
 import { LogoMark } from '../Landing'
 import type { LabParams } from './LandingSim'
-import { presetDamping, simulateClosedLoop, zetaOmega } from './LandingSim'
+import { presetDamping, searchGains, simulateClosedLoop, stepResponse, zetaOmega } from './LandingSim'
 import MassSpringDamperSim from './hero/MassSpringDamperSim'
 import TuneSection from './TuneSection'
 import { StepTraceView, pointsToPath } from './TraceView'
@@ -34,6 +34,173 @@ function RegimeTraces() {
 					</StepTraceView>
 				</figure>
 			))}
+		</div>
+	)
+}
+
+const DEMO_PLANT = { m: 1, k: 2, c: 0.5 }
+const DEMO_REF = 1
+const SETTLE_BAND = 5
+const TRADE_HORIZON = 6
+
+const TRADE_OFFS = [
+	{
+		tone: 'bad',
+		label: 'Too little damping',
+		kp: 20,
+		kd: 3,
+		body: 'Same proportional gain, a third of the derivative. The poles sit close to the imaginary axis, so the step rings, passes the reference by more than a quarter of the step, and takes nearly three times as long to settle.',
+	},
+	{
+		tone: 'good',
+		label: 'Matched damping',
+		kp: 20,
+		kd: 6,
+		body: 'More derivative, and the ringing goes away without giving up speed. Push much further and the step goes overdamped instead, which buys a cleaner trace and costs settling time all over again.',
+	},
+] as const
+
+function fmtSeconds(t: number | null): string {
+	return t === null ? 'never' : `${t.toFixed(2)} s`
+}
+
+// The two tunes share a plant and a proportional gain, so the pair isolates
+// the derivative term. Measured once at module scope; the section is static.
+const TRADE_TRAITS = TRADE_OFFS.map((t) => stepResponse({ ...DEMO_PLANT, kp: t.kp, kd: t.kd }, DEMO_REF, SETTLE_BAND, TRADE_HORIZON))
+
+function TradeOffs() {
+	return (
+		<div className="tradeoffs">
+			{TRADE_OFFS.map((t, i) => {
+				const r = TRADE_TRAITS[i]
+				return (
+					<div className="tradeoffs__item" key={t.label}>
+						<div className="tradeoffs__variant">
+							<span className={`tradeoffs__dot tradeoffs__dot--${t.tone}`} /> {t.label}
+						</div>
+						<p className="tradeoffs__text">{t.body}</p>
+						<div className="tradeoffs__traits mono">
+							<span>
+								Kp {t.kp} · Kd {t.kd}
+							</span>
+							<span>
+								overshoot {r.overshoot.toFixed(1)}% · settle {fmtSeconds(r.settle)} ({SETTLE_BAND}% band)
+							</span>
+						</div>
+					</div>
+				)
+			})}
+		</div>
+	)
+}
+
+const SEARCH_BOX = { kpMax: 30, kdMax: 15, step: 0.5 }
+const SEARCH_DT = 0.01
+const MAP_W = 300
+const MAP_H = 160
+const MAP_BANDS = 7
+
+function SearchSection() {
+	const result = useMemo(
+		() => searchGains(DEMO_PLANT, DEMO_REF, SEARCH_BOX, SETTLE_BAND, TRADE_HORIZON, SEARCH_DT),
+		[],
+	)
+	const best = result.best
+	const bestResponse = useMemo(
+		() => (best ? stepResponse({ ...DEMO_PLANT, kp: best.kp, kd: best.kd }, DEMO_REF, SETTLE_BAND, TRADE_HORIZON, SEARCH_DT) : null),
+		[best],
+	)
+
+	// One path per cost level, so a 1,891-cell surface costs seven DOM nodes
+	// rather than one per candidate. Levels are spaced logarithmically: the
+	// objective's range is 0.30 to 4.97 with 80% of the box below 0.90, so
+	// banding it linearly would crush the entire cheap basin into one level.
+	// A log scale also puts a level edge at J = 1, which is the scale the lab's
+	// own breakdown uses for "this candidate matches the reference cost".
+	const { paths, colW, rowH, lowCost, highCost } = useMemo(() => {
+		const cols = Math.round(SEARCH_BOX.kpMax / SEARCH_BOX.step) + 1
+		const rows = Math.round(SEARCH_BOX.kdMax / SEARCH_BOX.step) + 1
+		const cw = MAP_W / cols
+		const ch = MAP_H / rows
+		const costs = result.cells.map((c) => c.cost)
+		const lo = Math.log(Math.min(...costs))
+		const hi = Math.log(Math.max(...costs))
+		const span = hi - lo || 1
+		const buckets: string[][] = Array.from({ length: MAP_BANDS }, () => [])
+		for (const c of result.cells) {
+			const t = (Math.log(c.cost) - lo) / span
+			const band = Math.min(MAP_BANDS - 1, Math.max(0, Math.floor(t * MAP_BANDS)))
+			const x = (c.kp / SEARCH_BOX.step) * cw
+			const y = MAP_H - (c.kd / SEARCH_BOX.step + 1) * ch
+			const w = Math.max(0.8, cw - 0.6)
+			const h = Math.max(0.8, ch - 0.6)
+			buckets[band].push(`M${x.toFixed(2)} ${y.toFixed(2)}h${w.toFixed(2)}v${h.toFixed(2)}h${(-w).toFixed(2)}z`)
+		}
+		return { paths: buckets.map((d) => d.join('')), colW: cw, rowH: ch, lowCost: Math.exp(lo), highCost: Math.exp(hi) }
+	}, [result])
+
+	if (!best || !bestResponse) return null
+	const bestX = (best.kp / SEARCH_BOX.step) * colW + colW / 2
+	const bestY = MAP_H - (best.kd / SEARCH_BOX.step + 1) * rowH + rowH / 2
+
+	return (
+		<div className="search">
+			<div className="search__meta">
+				<div className="search__meta-row">
+					<span className="search__meta-key">Gain box</span>
+					<span className="search__meta-value mono">
+						Kp 0–{SEARCH_BOX.kpMax} · Kd 0–{SEARCH_BOX.kdMax}
+					</span>
+				</div>
+				<div className="search__meta-row">
+					<span className="search__meta-key">Candidates</span>
+					<span className="search__meta-value mono">{result.evaluated.toLocaleString()}</span>
+				</div>
+				<div className="search__meta-row">
+					<span className="search__meta-key">Cheapest</span>
+					<span className="search__meta-value mono">
+						★ Kp {best.kp} · Kd {best.kd}
+					</span>
+				</div>
+				<div className="search__meta-row">
+					<span className="search__meta-key">Its response</span>
+					<span className="search__meta-value mono">
+						{bestResponse.overshoot.toFixed(1)}% · {fmtSeconds(bestResponse.settle)} ({SETTLE_BAND}% band)
+					</span>
+				</div>
+				<p className="search__meta-note">
+					{result.scored === result.evaluated
+						? `All ${result.evaluated.toLocaleString()} pairs were stable enough to score. `
+						: `${result.scored.toLocaleString()} of ${result.evaluated.toLocaleString()} pairs were stable enough to score. `}
+					Cost is <span className="mono">J = 1·IAE + 0.1·U + 0.5·Ts + 0.5·O</span>, each term divided by a fixed
+					scale before weighting, so the weights stay comparable across the box. Lower is better.
+				</p>
+			</div>
+			<figure className="search__figure">
+				<div className="search__map">
+					<svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} preserveAspectRatio="none" aria-hidden focusable="false">
+						{paths.map((d, i) => (
+							<path key={i} d={d} className={`search__band search__band--${i}`} />
+						))}
+					</svg>
+					<span className="search__axis search__axis--y" aria-hidden>Kd</span>
+					<span className="search__axis search__axis--x" aria-hidden>Kp</span>
+					<span className="search__best" style={{ left: `${(bestX / MAP_W) * 100}%`, top: `${(bestY / MAP_H) * 100}%` }} aria-hidden>
+						★
+					</span>
+				</div>
+				<figcaption className="search__legend">
+					<span className="search__legend-scale" aria-hidden>
+						{Array.from({ length: MAP_BANDS }, (_, i) => (
+							<span key={i} className={`search__band search__band--${i}`} />
+						))}
+					</span>
+					<span className="search__legend-text">
+						cost <span className="mono">J {lowCost.toFixed(2)}</span> in the basin, rising to{' '}
+						<span className="mono">J {highCost.toFixed(2)}</span> at the far corner
+					</span>
+				</figcaption>
+			</figure>
 		</div>
 	)
 }
@@ -144,22 +311,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">Understand the trade-offs</h2>
 					<p className="landing-section__lede">Fast is not always better. Every gain choice trades one spec against another.</p>
 				</div>
-				<div className="tradeoffs">
-					<div className="tradeoffs__item">
-						<div className="tradeoffs__variant">
-							<span className="tradeoffs__dot tradeoffs__dot--bad" /> Too much gain, too little damping
-						</div>
-						<p className="tradeoffs__text">Rings hard, overshoots, and takes just as long to settle as a calmer tune.</p>
-						<div className="tradeoffs__traits mono">overshoot 28% · settle 2.1 s</div>
-					</div>
-					<div className="tradeoffs__item">
-						<div className="tradeoffs__variant">
-							<span className="tradeoffs__dot tradeoffs__dot--good" /> Balanced gains
-						</div>
-						<p className="tradeoffs__text">A compact, damped step that reaches the reference cleanly and stays there.</p>
-						<div className="tradeoffs__traits mono">overshoot 2% · settle 0.8 s</div>
-					</div>
-				</div>
+				<TradeOffs />
 				<ol className="chain">
 					<li>Gain</li>
 					<li>→</li>
@@ -174,33 +326,11 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 			<section className="landing-section" id="search">
 				<div className="landing-section__head">
 					<h2 className="landing-section__title">Search the design space</h2>
-					<p className="landing-section__lede">Thousands of candidate gain pairs, scored against your specs, then ranked.</p>
+					<p className="landing-section__lede">
+						Every gain pair in the box is simulated and scored, then ranked. The cheapest one wins.
+					</p>
 				</div>
-				<div className="search">
-					<div className="search__meta">
-						<div className="search__meta-row">
-							<span className="search__meta-key">Candidates</span>
-							<span className="search__meta-value mono">11,520</span>
-						</div>
-						<div className="search__meta-row">
-							<span className="search__meta-key">Cost function</span>
-							<span className="search__meta-value mono">settle + overshoot</span>
-						</div>
-						<div className="search__meta-row">
-							<span className="search__meta-key">Best</span>
-							<span className="search__meta-value mono">★ Kp 12 · Kd 5.5</span>
-						</div>
-					</div>
-					<div className="search__map" aria-hidden>
-						{Array.from({ length: 46 }).map((_, i) => {
-							const x = 8 + ((i * 37) % 84)
-							const y = 8 + ((i * 53) % 76)
-							const hit = i % 9 === 0
-							return <span key={i} className={`search__cell ${hit ? 'search__cell--hit' : ''}`} style={{ left: `${x}%`, top: `${y}%` }} />
-						})}
-						<span className="search__cell search__cell--best">★</span>
-					</div>
-				</div>
+				<SearchSection />
 			</section>
 
 			<section className="landing-cta">
