@@ -58,6 +58,9 @@ export interface WorkspaceState {
 	steadyStateErrorWeight: number
 
 	simulation: SimulationResponse | null
+	/** The gain the current simulation was computed for; the number panels may
+	 * lead the live form during a recompute, so this keeps them honest. */
+	simGain: [number, number] | null
 	stability: StabilityResponse | null
 	optimizerResult: OptimizationResponse | null
 	/** The form settings the current optimizerResult was launched with. */
@@ -134,6 +137,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [steadyStateErrorWeight, setSteadyStateErrorWeight] = useState(1)
 
 	const [simulation, setSimulation] = useState<SimulationResponse | null>(null)
+	const [simGain, setSimGain] = useState<[number, number] | null>(null)
 	const [stability, setStability] = useState<StabilityResponse | null>(null)
 	const [optimizerResult, setOptimizerResult] = useState<OptimizationResponse | null>(null)
 	const [optimizerConfig, setOptimizerConfig] = useState<OptimizeRunConfig | null>(null)
@@ -179,12 +183,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
 			})
 			setSimulation(res)
+			setSimGain(Array.isArray(applied) ? [applied[0], applied[1] ?? applied[0]] : null)
 		} catch (e) {
 			// Drop the previous result rather than leaving it on screen. The
 			// panels label their numbers with the *current* gain, so keeping the
 			// old response would silently attribute stale metrics to new gains.
 			if (!isAbortError(e)) {
 				setSimulation(null)
+				setSimGain(null)
 				setStability(null)
 				setError(errorMessage(e))
 			}
@@ -310,6 +316,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
 	const clearResults = useCallback(() => {
 		setSimulation(null)
+		setSimGain(null)
 		setStability(null)
 		setOptimizerResult(null)
 		setOptimizerConfig(null)
@@ -356,6 +363,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 setSteadyStateErrorEnabled(false)
 		setSteadyStateErrorWeight(1)
 		setSimulation(null)
+		setSimGain(null)
 		setStability(null)
 		setOptimizerResult(null)
 		setOptimizerConfig(null)
@@ -440,7 +448,8 @@ setSteadyStateErrorEnabled(false)
 		overshootWeight,
 		steadyStateErrorEnabled,
 		steadyStateErrorWeight,
-		simulation,
+simulation,
+		simGain,
 		stability,
 		optimizerResult,
 		optimizerConfig,

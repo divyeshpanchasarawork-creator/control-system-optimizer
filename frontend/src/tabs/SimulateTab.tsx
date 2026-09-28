@@ -244,7 +244,11 @@ export function SimulateTab() {
 				</Panel>
 			)}
 
-			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">K = [{fmtGain(gain[0])}, {fmtGain(gain[1])}]</span>}>
+			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">{busy
+				? `K = [${fmtGain(gain[0])}, ${fmtGain(gain[1])}] · recomputing…`
+				: w.simGain
+					? `K = [${fmtGain(w.simGain[0])}, ${fmtGain(w.simGain[1])}]`
+					: `K = [${fmtGain(gain[0])}, ${fmtGain(gain[1])}]`}</span>}>
 				{metrics ? (
 					<>
 						<div className="metric-group">
@@ -318,6 +322,15 @@ export function SimulateTab() {
 				<div className="callout callout--info">
 					<span className="spinner" />
 					{w.loading ?? 'Refreshing results after your edits…'}
+				</div>
+			)}
+
+			{!busy && w.error && w.simulation === null && (
+				<div className="callout callout--error">
+					<span>{w.error}</span>
+					<button type="button" className="btn btn--sm" onClick={() => { void w.runSimulation(); void w.runStability({ silent: true }) }}>
+						Retry simulation
+					</button>
 				</div>
 			)}
 		</div>

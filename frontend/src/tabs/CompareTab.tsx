@@ -171,7 +171,7 @@ export function CompareTab() {
 				<div className="row row--between">
 					<span className="faint">Manual K = [{fmt(w.manualGain[0])}, {fmt(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmt(w.optimizedGain[0])}, ${fmt(w.optimizedGain[1])}]` : ''}</span>
 					<button className="btn primary" onClick={() => void runBoth()} disabled={!ready || pending}>
-						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : ran ? 'Re-run comparison' : 'Compare gains'}
+						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : w.error ? 'Retry comparison' : ran ? 'Re-run comparison' : 'Compare gains'}
 					</button>
 				</div>
 				{pending && (
@@ -191,78 +191,84 @@ export function CompareTab() {
 				)}
 			</Panel>
 
-			{opt && breakdown && (
-				<Panel title="Objective breakdown at the optimized gain">
-					<ObjectiveBreakdownTable breakdown={breakdown} notSettled={opt.metrics?.settlingTime === null} />
-				</Panel>
-			)}
-
-			{(manualSim || optSim) && (
-				<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
-					<DataTable columns={[{ header: 'Metric' }, { header: 'Manual' }, { header: 'Optimized' }, { header: 'Δ' }]}>
-						<tbody>
-								{METRIC_GROUPS.map((g) => (
-									<GroupRow key={g.label} group={g} manual={manualMetrics} optimized={optMetrics} />
-								))}
-							</tbody>
-					</DataTable>
-				</Panel>
-			)}
-
-			{!manualSim && !optSim && (
-				<Empty>The comparison starts on its own as soon as an optimization produces a gain.</Empty>
-			)}
-
-		<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
-			{(manualSim || optSim)
-				? <ChartGrid manual={manualSim} optimized={optSim} />
-				: <Empty>Both trajectories appear here once the comparison runs.</Empty>}
-		</Panel>
-
-			<Panel title="Why this gain?">
+			<div className="grid grid--split">
 				<div className="stack">
-					{opt ? (
-						<>
-							<p className="faint reset-top">
-								The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
-								{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> The measured deltas appear as soon as the comparison finishes.</>}
-							</p>
-							{manualMetrics && optMetrics && tradeoffSentence(manualMetrics, optMetrics) && (
-								<p className="faint" style={{ marginTop: -4 }}>{tradeoffSentence(manualMetrics, optMetrics)}</p>
+					{(manualSim || optSim) && (
+						<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
+							<DataTable columns={[{ header: 'Metric' }, { header: 'Manual' }, { header: 'Optimized' }, { header: 'Δ' }]}>
+								<tbody>
+										{METRIC_GROUPS.map((g) => (
+											<GroupRow key={g.label} group={g} manual={manualMetrics} optimized={optMetrics} />
+										))}
+									</tbody>
+							</DataTable>
+						</Panel>
+					)}
+
+					{!manualSim && !optSim && (
+						<Empty>The comparison starts on its own as soon as an optimization produces a gain.</Empty>
+					)}
+
+					<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
+						{(manualSim || optSim)
+							? <ChartGrid manual={manualSim} optimized={optSim} />
+							: <Empty>Both trajectories appear here once the comparison runs.</Empty>}
+					</Panel>
+				</div>
+
+				<div className="stack">
+					{opt && breakdown && (
+						<Panel title="Objective breakdown at the optimized gain">
+							<ObjectiveBreakdownTable breakdown={breakdown} notSettled={opt.metrics?.settlingTime === null} />
+						</Panel>
+					)}
+
+					<Panel title="Why this gain?">
+						<div className="stack">
+							{opt ? (
+								<>
+									<p className="faint reset-top">
+										The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
+										{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> The measured deltas appear as soon as the comparison finishes.</>}
+									</p>
+									{manualMetrics && optMetrics && tradeoffSentence(manualMetrics, optMetrics) && (
+										<p className="faint" style={{ marginTop: -4 }}>{tradeoffSentence(manualMetrics, optMetrics)}</p>
+									)}
+									{manualMetrics && optMetrics ? (
+										<div className="grid grid--2">
+											{METRIC_GROUPS.flatMap((g) => g.keys).map((k) => {
+												const manual = metricValue(manualMetrics, k.key)
+												const optimized = metricValue(optMetrics, k.key)
+												const rel = manual === null || optimized === null ? null : relativeDelta(manual, optimized)
+												if (rel === null) return null
+												const tone = rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
+												return (
+													<MetricCard
+																key={k.key}
+																label={k.name}
+																sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
+																value={<Delta value={rel} pct tone={tone} />}
+																tone={tone}/>
+												)
+											})}
+										</div>
+									) : null}
+								</>
+							) : (
+								<Empty>Run an optimization to get the "why": weights, breakdown, and per-metric deltas.</Empty>
 							)}
-							{manualMetrics && optMetrics ? (
-								<div className="grid grid--3">
-									{METRIC_GROUPS.flatMap((g) => g.keys).map((k) => {
-										const manual = metricValue(manualMetrics, k.key)
-										const optimized = metricValue(optMetrics, k.key)
-										const rel = manual === null || optimized === null ? null : relativeDelta(manual, optimized)
-										if (rel === null) return null
-										const tone = rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
-										return (
-											<MetricCard
-														key={k.key}
-														label={k.name}
-														sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
-														value={<Delta value={rel} pct tone={tone} />}
-														tone={tone}/>
-										)
-									})}
-								</div>
-							) : null}
-						</>
-					) : (
-						<Empty>Run an optimization to get the "why": weights, breakdown, and per-metric deltas.</Empty>
+						</div>
+					</Panel>
+
+					{opt && (
+						<div className="row">
+							<Badge tone={opt.feasible ? 'good' : 'bad'}>{opt.feasible ? 'feasible' : 'infeasible'}</Badge>
+							<Badge tone="neutral">{opt.optimizerType}</Badge>
+							<span className="faint mono">{fmt(opt.evaluations, 0)} evaluations · {fmt(opt.elapsedMillis, 0)} ms</span>
+						</div>
 					)}
 				</div>
-			</Panel>
-
-			{opt && (
-				<div className="row">
-					<Badge tone={opt.feasible ? 'good' : 'bad'}>{opt.feasible ? 'feasible' : 'infeasible'}</Badge>
-					<Badge tone="neutral">{opt.optimizerType}</Badge>
-					<span className="faint mono">{fmt(opt.evaluations, 0)} evaluations · {fmt(opt.elapsedMillis, 0)} ms</span>
-				</div>
-			)}
+			</div>
 
 			{w.loading && (
 				<div className="callout callout--info">

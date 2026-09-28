@@ -462,6 +462,12 @@
   grid-template-columns: 1.4fr 1fr;
 }
 
+/* Asymmetric result split: the comparison is the story, the breakdown is the
+   rail beside it. minmax(0, …) keeps tables inside from overflowing. */
+.grid--split {
+  grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr);
+}
+
 /* Fluid: form fields wrap onto as many lines as they need. */
 .grid--auto {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -884,6 +890,54 @@
   border-radius: var(--radius-md);
   padding: 12px;
   background: var(--surface-2);
+}
+
+/* Headline summary for the optimization result: the numbers you want before
+   the detail table. J and K read large, the rest are quiet captions. */
+.result-hero {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  padding: var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.result-hero__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.result-hero__label {
+  font-size: var(--fs-micro);
+  font-weight: var(--weight-strong);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-3);
+}
+
+.result-hero__value {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: var(--weight-strong);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-hero__meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--text-3);
 }
 
 .gain-card__label {
@@ -1614,7 +1668,8 @@
 @media (max-width: 1023px) {
   .grid--2,
   .grid--3,
-  .grid--wide {
+  .grid--wide,
+  .grid--split {
     grid-template-columns: 1fr;
   }
 }

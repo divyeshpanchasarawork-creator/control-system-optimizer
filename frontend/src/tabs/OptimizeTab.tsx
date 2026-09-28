@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
+import { Badge, CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
 import { fmt, fmtGain } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -99,6 +99,9 @@ export function OptimizeTab() {
 	// a rejected gain must never be shown as "the best gain", so the two cases
 	// are labelled separately instead of sharing one formatter
 	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmtGain(g)).join(', ')
+	const heroGainLabel = result?.feasible
+		? bestGainLabel
+		: (nearMiss?.gain.map((g) => fmtGain(g)).join(', ') ?? bestGainLabel)
 
 	return (
 		<div className="stack">
@@ -234,12 +237,28 @@ export function OptimizeTab() {
 
 			<div className="btn-row btn-row--end">
 				<button className="btn primary btn--block" onClick={() => void w.runOptimization()} disabled={w.loading !== null}>
-					<Rocket size={14} strokeWidth={2} /> {w.loading ?? 'Run optimization'}
+					<Rocket size={14} strokeWidth={2} /> {w.loading ?? (w.error ? 'Retry optimization' : 'Run optimization')}
 				</button>
 			</div>
 
 			{w.optimizerResult ? (
 				<div className="stack">
+					<div className="result-hero">
+						<span className="result-hero__stat">
+							<span className="result-hero__label">Objective J</span>
+							<span className="result-hero__value">{w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</span>
+						</span>
+						<span className="result-hero__stat">
+							<span className="result-hero__label">{result?.feasible ? 'Best gain K' : 'Closest gain K'}</span>
+							<span className="result-hero__value">[{heroGainLabel}]</span>
+						</span>
+						<span className="result-hero__meta">
+							<Badge tone={result?.feasible ? 'good' : 'bad'}>{result?.feasible ? 'feasible' : 'infeasible'}</Badge>
+							<Badge tone="neutral">{runType}</Badge>
+							<span className="mono">{fmt(w.optimizerResult.evaluations, 0)} evaluations · {fmt(w.optimizerResult.elapsedMillis, 0)} ms</span>
+						</span>
+					</div>
+
 					<Panel title="Optimization">
 						<KeyValue
 							rows={[
@@ -259,29 +278,6 @@ export function OptimizeTab() {
 										value: <>Kp {fmt((runUpper[0] - runLower[0]) / (runGridResolution - 1), 3)} · Kd {fmt((runUpper[1] - runLower[1]) / (runGridResolution - 1), 3)}</>,
 									}]
 									: []),
-								{
-									label: 'Runtime',
-									mono: true,
-									value: <>{fmt(w.optimizerResult.elapsedMillis, 0)} ms · {fmt(w.optimizerResult.evaluations, 0)} evaluations</>,
-								},
-								{
-									label: 'Feasible',
-									value: w.optimizerResult.feasible ? 'Yes · best candidate found' : 'No feasible candidate in the box',
-								},
-								{
-									label: 'Best candidate',
-									mono: true,
-									value: result?.feasible
-										? `K = [${bestGainLabel}]`
-										: nearMiss
-											? `none feasible · closest was K = [${nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]`
-											: 'none feasible in the search box',
-								},
-								{
-									label: 'Objective',
-									mono: true,
-									value: <>J = {w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)}</>,
-								},
 								{
 									label: 'Control law',
 									mono: true,
