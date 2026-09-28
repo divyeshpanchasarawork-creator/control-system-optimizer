@@ -1,6 +1,6 @@
 import { Check, Rocket } from 'lucide-react'
 import { CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
-import { fmt } from '../components/common'
+import { fmt, fmtGain } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 
@@ -65,8 +65,8 @@ export function OptimizeTab() {
 		]
 		for (const axis of axes) {
 			const best = w.optimizerResult.bestGain[axis.index]
-			if (Math.abs(best - runLower[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (lower edge)`)
-			else if (Math.abs(best - runUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmt(best, 3)} (upper edge)`)
+			if (Math.abs(best - runLower[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmtGain(best)} (lower edge)`)
+			else if (Math.abs(best - runUpper[axis.index]) < 1e-9) boundaryHits.push(`${axis.label} = ${fmtGain(best)} (upper edge)`)
 		}
 	}
 	const boundaryHit = w.optimizerResult?.boundaryHit ?? false
@@ -98,7 +98,7 @@ export function OptimizeTab() {
 	const reportedMetrics = infeasible ? nearMiss?.metrics ?? null : w.optimizerResult?.metrics ?? null
 	// a rejected gain must never be shown as "the best gain", so the two cases
 	// are labelled separately instead of sharing one formatter
-	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmt(g, 3)).join(', ')
+	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmtGain(g)).join(', ')
 
 	return (
 		<div className="stack">
@@ -151,17 +151,17 @@ export function OptimizeTab() {
 					/>
 					{w.optimizerType === 'GRID_SEARCH' ? (
 						<>
-							<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
+							<div className="grid grid--auto mt-3">
 								<NumberField label="Grid resolution (per dim.)" hint="Samples per gain dimension. Total evaluations = resolution². 41 → 1,681 simulations, 101 → ~10,000."
 									value={w.gridResolution} min={2} max={101} step={1} onChange={(v) => w.update({ gridResolution: Math.round(v) })} />
 								<CheckField label="Return cost surface (2-D grid)" checked={w.includeCostSurface}
 									onChange={(v) => w.update({ includeCostSurface: v })} hint="When on, the response includes the full objective heatmap over the grid, plus per-cell IAE and control energy for the interactive tooltip." />
 							</div>
-							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
+							<div className="mt-2"><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
 						</>
 					) : (
 						<>
-							<div style={{ marginTop: "var(--space-3)" }}>
+							<div className="mt-3">
 								<Disclosure
 									label="Advanced parameters"
 									summary={`pop ${w.populationSize} · gen ${w.maxIterations} · F ${fmt(w.differentialWeight, 2)} · CR ${fmt(w.crossoverRate, 2)} · seed ${w.seed}`}
@@ -181,7 +181,7 @@ export function OptimizeTab() {
 									</div>
 								</Disclosure>
 							</div>
-							<div style={{ marginTop: "var(--space-2)" }}><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
+							<div className="mt-2"><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
 						</>
 					)}
 			</Panel>
@@ -196,8 +196,8 @@ export function OptimizeTab() {
 						))}
 					</div>
 					<ObjectiveBars weights={weights} onChange={handleWeight} />
-					<p className="faint" style={{ marginBottom: 0, marginTop: "var(--space-3)" }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
-					<div style={{ marginTop: "var(--space-3)" }} className="row">
+					<p className="faint mt-3" style={{ marginBottom: 0 }}>The steady-state term is normalized by |r₁| and the other four terms by fixed scales: IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling time by T, overshoot by 100. So J does not depend on any manual baseline gain.</p>
+					<div className="row mt-3">
 						<CheckField
 							label="Include steady-state error term"
 							checked={w.steadyStateErrorEnabled}
@@ -215,7 +215,7 @@ export function OptimizeTab() {
 					<CheckField label="Enforce constraints during search" checked={w.constraintsEnabled}
 						onChange={(v) => w.update({ constraintsEnabled: v })} hint={LEARNING.constraints} />
 					{w.constraintsEnabled && (
-						<div style={{ marginTop: "var(--space-3)" }} className="grid grid--auto">
+						<div className="grid grid--auto mt-3">
 							<NumberField label="Peak force" unit="force" hint="Ceiling on the peak actuator command. Candidates exceeding it are infeasible."
 								value={Number.isFinite(w.maxControl) ? w.maxControl : 0} min={0} step={1} onChange={(v) => w.update({ maxControl: v })} />
 							<NumberField label="Max overshoot" unit="%" hint="Ceiling on overshoot percentage."
@@ -274,7 +274,7 @@ export function OptimizeTab() {
 									value: result?.feasible
 										? `K = [${bestGainLabel}]`
 										: nearMiss
-											? `none feasible · closest was K = [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
+											? `none feasible · closest was K = [${nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]`
 											: 'none feasible in the search box',
 								},
 								{
@@ -301,7 +301,7 @@ export function OptimizeTab() {
 							right={<Learn title="Why the search failed"><p>Every candidate costs +∞ once it breaks a limit, so the search ranks them by the worst relative miss instead. The candidate below came nearest, and these are the limits it broke. Relax one of them, or widen the gain range, and rerun.</p></Learn>}
 						>
 							<p className="faint reset-top">
-								Nearest candidate K = [{nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]
+								Nearest candidate K = [{nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]
 								{nearMiss.metrics && (
 									<>
 										{' '}· IAE {fmt(nearMiss.metrics.iae, 3)} · energy{' '}
@@ -357,7 +357,7 @@ export function OptimizeTab() {
 								value={result?.feasible
 									? `[${bestGainLabel}]`
 									: nearMiss
-										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmt(g, 3)).join(', ')}]`
+										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]`
 										: 'No feasible gain in range'}/>
 							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
 							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`} />
@@ -367,7 +367,7 @@ export function OptimizeTab() {
 						</div>
 
 						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (
-							<div style={{ marginTop: "var(--space-3)" }} className="btn-row">
+							<div className="btn-row mt-3">
 								<button className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
 							</div>
 						)}

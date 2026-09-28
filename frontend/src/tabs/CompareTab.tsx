@@ -175,17 +175,17 @@ export function CompareTab() {
 					</button>
 				</div>
 				{pending && (
-					<div className="row" style={{ marginTop: "var(--space-3)" }}>
+					<div className="row mt-3">
 						<BusyNote large>Running both controllers…</BusyNote>
 					</div>
 				)}
 				{!ready && (
-					<div style={{ marginTop: "var(--space-3)" }}>
+					<div className="mt-3">
 						<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
 					</div>
 				)}
 				{ready && !pending && ran && (
-					<div className="row" style={{ marginTop: "var(--space-3)" }}>
+					<div className="row mt-3">
 						<span className="faint">Both runs match the current model. Edit any input and they refresh themselves.</span>
 					</div>
 				)}
@@ -240,11 +240,11 @@ export function CompareTab() {
 										const tone = rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
 										return (
 											<MetricCard
-												key={k.key}
-												label={k.name}
-												sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
-												value={`${rel > 0 ? '+' : ''}${fmt(rel, 1)}%`}
-												tone={tone}/>
+														key={k.key}
+														label={k.name}
+														sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
+														value={<Delta value={rel} pct tone={tone} />}
+														tone={tone}/>
 										)
 									})}
 								</div>

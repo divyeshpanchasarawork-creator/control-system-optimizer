@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { Badge, BusyNote, CheckField, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SettlingBandTable } from '../components/common'
-import { fmt } from '../components/common'
+import { fmt, fmtGain } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 import { poleSummary } from '../lib/poles'
@@ -145,7 +145,7 @@ export function SimulateTab() {
 								else w.update({ manualGain: [w.manualGain[0], v] })
 							}} />
 					</div>
-					<div style={{ marginTop: "var(--space-3)" }} className="row row--between">
+					<div className="row row--between mt-3">
 						<CheckField label="Reference tracking" checked={w.tracking} onChange={(v) => w.update({ tracking: v })} hint={LEARNING.tracking} />
 						<span className="mono faint">
 							{w.tracking
@@ -153,7 +153,7 @@ export function SimulateTab() {
 								: `u = −${fmt(gain[0], 3)}·x₁ − ${fmt(gain[1], 3)}·x₂`}
 						</span>
 					</div>
-					<div style={{ marginTop: "var(--space-2)" }} className="row">
+					<div className="row mt-2">
 						<CheckField
 							label="Reference feedforward"
 							checked={w.feedforward}
@@ -181,7 +181,7 @@ export function SimulateTab() {
 						<NumberField label="Initial velocity" unit="m/s" hint="Starting velocity ẋ(0)."
 							value={w.initialState[1]} step={0.1} onChange={(v) => w.update({ initialState: [w.initialState[0], v] })} />
 					</div>
-					<div style={{ marginTop: "var(--space-4)" }} className="row row--between">
+					<div className="row row--between mt-4">
 						{busy ? (
 							<BusyNote>Recomputing simulation…</BusyNote>
 						) : (
@@ -208,7 +208,7 @@ export function SimulateTab() {
 									<span key={i} className="mono">λ{i + 1} = {lam.imag === 0 ? fmt(lam.real, 3) : `${fmt(lam.real, 3)} ${lam.imag >= 0 ? '+' : '−'} ${fmt(Math.abs(lam.imag), 3)}i`}</span>
 								))}
 							</div>
-							<div style={{ marginTop: "var(--space-2)" }} className="row">
+							<div className="row mt-2">
 								<span className="faint">Stability:</span>{' '}
 								{w.stability.stable ? <span>Stable ✓ · poles in the left half-plane</span> : <span>Unstable ✗ · increase Kp or Kd</span>}
 							</div>
@@ -244,7 +244,7 @@ export function SimulateTab() {
 				</Panel>
 			)}
 
-			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">K = [{fmt(gain[0])}, {fmt(gain[1])}]</span>}>
+			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">K = [{fmtGain(gain[0])}, {fmtGain(gain[1])}]</span>}>
 				{metrics ? (
 					<>
 						<div className="metric-group">
@@ -293,7 +293,7 @@ export function SimulateTab() {
 						<MetricCard label="Measured final error" value={metrics ? fmt(metrics.finalError) : 'n/a'} hint="Measured |r₁ − x₁| at the last sample." />
 						<MetricCard label="Analytic e_ss" value={xSS === null ? 'n/a' : fmt(eSS)} hint="Analytic steady-state error |r₁ − x_ss|; 0 with feedforward." />
 					</div>
-					<p className="faint" style={{ marginTop: "var(--space-2)" }}>
+					<p className="faint mt-2">
 						PD-only state feedback leaves the static offset e_ss = k·r₁/(k + Kp); feedforward (+k·r₁) cancels the load so x_ss = r₁ and e_ss = 0.
 					</p>
 				</Panel>

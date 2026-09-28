@@ -1357,6 +1357,18 @@
   overflow-x: auto;
 }
 
+.mt-2 {
+  margin-top: var(--space-2);
+}
+
+.mt-3 {
+  margin-top: var(--space-3);
+}
+
+.mt-4 {
+  margin-top: var(--space-4);
+}
+
 .data {
   width: 100%;
   border-collapse: collapse;

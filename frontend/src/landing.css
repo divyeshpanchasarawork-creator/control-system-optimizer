@@ -854,7 +854,7 @@
   position: absolute;
   width: 18px;
   height: 18px;
-  margin: -9px 0 0 -9px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   display: flex;
   align-items: center;

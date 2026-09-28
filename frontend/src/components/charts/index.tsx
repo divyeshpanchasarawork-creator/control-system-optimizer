@@ -416,7 +416,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 				</div>
 			)}
 
-			<div className="heatmap-legend-row" style={{ marginTop: "var(--space-2)" }}>
+			<div className="heatmap-legend-row mt-2">
 				<span><span className="swatch" style={{ background: cell(lo) }} /> low J</span>
 				<span><span className="swatch" style={{ background: cell(hi) }} /> high J</span>
 				<span><span className="swatch" style={{ background: hatchPattern(colors) }} /> infeasible / unstable</span>
