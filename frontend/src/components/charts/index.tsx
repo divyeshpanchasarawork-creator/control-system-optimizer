@@ -37,7 +37,7 @@ export function OverlayChart({ data, series, height = 180 }: {
 	const c = chartColors()
 	return (
 		<ResponsiveContainer width="100%" height={height}>
-			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }} title={series.map((s) => s.name).join(' vs ')}>
 				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={48} />
 				{series.map((s) => (
@@ -70,8 +70,8 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 		: (p: { time: number; state: number[] }) => p.state[idx] ?? null
 
 	return (
-		<ResponsiveContainer width="100%" height={200}>
-			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+<ResponsiveContainer width="100%" height={200}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title="Tracking error over time">
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
@@ -200,7 +200,7 @@ export function PoleZeroChart({ eigenvalues }: { eigenvalues: { real: number; im
 
 	return (
 		<ResponsiveContainer width="100%" height={240}>
-			<ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+			<ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }} title="Closed-loop pole locations on the complex plane">
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<ReferenceLine x={0} stroke={c.red} strokeWidth={1.5} strokeDasharray="4 4" label={{ value: 'stability edge', fontSize: 10, fill: c.red, position: 'top' }} />
 				<XAxis type="number" dataKey="x" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke={c.axis} name="Re" label={{ value: 'Re(λ)', position: 'insideBottomRight', fontSize: 11, fill: c.axis, dx: 4 }} />
@@ -223,7 +223,7 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 	const annotated = finalJ !== undefined
 	return (
 		<ResponsiveContainer width="100%" height={220}>
-			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }}>
+			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }} title={`Convergence of best objective J over ${xLabel.toLowerCase()}`}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="generation" type="number" domain={[0, gMax]} tick={{ fontSize: 11 }} stroke={c.axis} label={{ value: xLabel, position: 'insideBottomRight', fontSize: 11, fill: c.axis, dy: 6 }} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={56} label={{ value: 'Best objective J', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 10 }} />

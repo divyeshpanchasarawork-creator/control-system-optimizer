@@ -190,7 +190,7 @@ export default function App() {
 							</div>
 						</aside>
 
-						<main className="main">
+						<main className="main" aria-busy={w.loading !== null}>
 							<header className="main__header">
 								<div className="main__header-left">
 									<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation">

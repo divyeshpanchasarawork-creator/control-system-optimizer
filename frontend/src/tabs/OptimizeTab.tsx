@@ -119,7 +119,7 @@ export function OptimizeTab() {
 
 			<Panel title="Step 1 · Search space">
 					<div className="grid grid--2">
-						<div className="gain-card">
+						<div className="gain-card" role="group" aria-label="Kp position gain search range">
 							<span className="gain-card__label">Kp <span className="faint">position gain</span></span>
 							<span className="gain-card__desc">Search range for the proportional gain.</span>
 							<div className="grid grid--auto">
@@ -127,7 +127,7 @@ export function OptimizeTab() {
 								<NumberField label="Max" value={w.gainUpper[0]} step={1} min={-100} onChange={(v) => w.update({ gainUpper: [v, w.gainUpper[1]] })} />
 							</div>
 						</div>
-						<div className="gain-card">
+						<div className="gain-card" role="group" aria-label="Kd velocity gain search range">
 							<span className="gain-card__label">Kd <span className="faint">velocity gain</span></span>
 							<span className="gain-card__desc">Search range for the derivative gain.</span>
 							<div className="grid grid--auto">
@@ -188,9 +188,9 @@ export function OptimizeTab() {
 
 			<Panel title="Step 3 · Objective">
 					<p className="faint reset-top">{LEARNING.formula}</p>
-					<div className="preset-row">
+					<div className="preset-row" role="radiogroup" aria-label="Objective weight preset">
 						{PRESETS.map((p) => (
-							<button key={p.key} className={`preset-chip ${activePreset === p.key ? 'active' : ''}`} onClick={() => handlePreset(p.key)}>
+							<button key={p.key} role="radio" aria-checked={activePreset === p.key} className={`preset-chip ${activePreset === p.key ? 'active' : ''}`} onClick={() => handlePreset(p.key)}>
 								{p.label}
 							</button>
 						))}

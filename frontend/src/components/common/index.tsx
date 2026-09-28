@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 
 const FALLBACK = 'Not available'
@@ -204,6 +204,7 @@ export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 	hint?: string
 }) {
 	const [open, setOpen] = useState(false)
+	const popId = useId()
 	return (
 		<div className={`metric-card metric-card--${tone}`}>
 			<span className="metric-card__label">
@@ -213,6 +214,8 @@ export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 						type="button"
 						className="info"
 						aria-label={`About ${label}`}
+						aria-expanded={open}
+						aria-describedby={open ? popId : undefined}
 						onClick={() => setOpen((o) => !o)}
 					>
 						<span className="info__glyph" aria-hidden="true">i</span>
@@ -221,7 +224,7 @@ export function MetricCard({ label, value, sub, tone = 'neutral', hint }: {
 			</span>
 			<span className={`metric-card__value metric-card__value--${tone}`}>{value}</span>
 			{sub !== undefined && <span className="metric-card__sub">{sub}</span>}
-			{hint !== undefined && open && <span className="metric-card__pop" role="tooltip">{hint}</span>}
+			{hint !== undefined && open && <span className="metric-card__pop" id={popId} role="tooltip">{hint}</span>}
 		</div>
 	)
 }
@@ -244,10 +247,11 @@ export function BusyNote({ children, large = false }: { children: ReactNode; lar
 }
 
 export function Info({ text }: { text: string }) {
+	const id = useId()
 	return (
-		<span className="info" tabIndex={0} title={text}>
+		<span className="info" tabIndex={0} title={text} aria-describedby={id}>
 			<span className="info__glyph" aria-hidden="true">i</span>
-			<span className="info__tip">{text}</span>
+			<span className="info__tip" id={id} role="note">{text}</span>
 		</span>
 	)
 }
@@ -511,7 +515,8 @@ export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }:
 					? 'J = Σ wᵢ·(metricᵢ / scaleᵢ): each term is normalized against a fixed positive scale (IAE by |r₁|·T, control energy by (k·|r₁|)²·T, settling by T, overshoot by 100), so J is deterministic and 1.0 on a term means its metric equals that scale. Below 1 is better, above is worse. Weighted contributions sum to J.'
 					: `J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O with raw weighting ${baselineNote ?? '(no manual-gain baseline was used, or the baseline could not be evaluated)'}. When a run never settles, the settling term is penalized as the full horizon.`}
 			</p>
-			<table className="data">
+			<div className="table-wrap">
+				<table className="data">
 				<thead>
 					<tr>
 						<th>Metric</th>
@@ -539,6 +544,7 @@ export function ObjectiveBreakdownTable({ breakdown, notSettled, baselineNote }:
 					))}
 				</tbody>
 			</table>
+			</div>
 			<div className="row row--between">
 				<span className="faint">{notSettled ? 'Settling never reached within the band: the raw settling term is the full horizon.' : ''}</span>
 				<span className="mono">J = {fmt(breakdown.total, 4)}</span>
