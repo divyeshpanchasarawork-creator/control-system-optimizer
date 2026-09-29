@@ -14,11 +14,11 @@ function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbs
 }
 
 const LEARNING = {
-	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The three plots separate the states and the actuator command: position and velocity over time with the dashed reference they track, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step; with feedforward the law becomes u = −K(x − r) + k·r₁ and x_ss = r₁ exactly. When an actuator saturation is set, u is hard-clipped to ±saturation.',
+	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The plots separate the states, the tracking error and the actuator command: position and velocity over time with the dashed reference they track, the error e(t) = r₁ − x₁, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step; with feedforward the law becomes u = −K(x − r) + k·r₁ and x_ss = r₁ exactly. When an actuator saturation is set, u is hard-clipped to ±saturation.',
 	stability: 'The closed-loop pole map plots the eigenvalues of A − BK (state feedback has no finite zeros). The system is stable when every pole sits in the left half-plane (real part < 0). Poles further left decay faster; a nonzero imaginary part means oscillation.',
-	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| stays inside the chosen band; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand; Peak force is its largest single value.',
-	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (1/s² units of force authority) and Kd the velocity error.',
-	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference; with feedforward the law becomes u = −K(x − r) + k·r₁ so x_ss = r₁ exactly. Without it, u = −Kx drives the state to the origin instead.',
+	metrics: 'Metrics use the scalar position error e = r₁ − x₁ (position only, never mixed with velocity). IAE measures ∫|e| dt, ISE squares the error so large deviations hurt more. Overshoot is how far position exceeds the target. Settling time is when |e| first stays inside the chosen band and never leaves; if it never does, it shows "Not reached". Control energy U = ∫u² dt (units N²·s) is the integrated actuator demand. Peak force is the largest value |u(t)| reaches over the run, not a measure of U itself.',
+	units: 'Inputs are in SI units: mass in kilograms (kg), damping in newton-seconds per meter (N·s/m), spring constant in newtons per meter (N/m). Time is in seconds (s). Kp multiplies the position error (N/m) and Kd the velocity error (N·s/m).',
+	tracking: 'With tracking, u = −K(x − r): the controller steers the state to the reference. Feedforward adds +k·r₁ (k is the spring constant) to the law, so x_ss = r₁ exactly. Without it, u = −Kx drives the state to the origin instead.',
 }
 
 const SETTLING_OPTIONS = [
@@ -159,7 +159,7 @@ export function SimulateTab() {
 							checked={w.feedforward}
 							disabled={!w.tracking}
 							onChange={(v) => w.update({ feedforward: v })}
-							hint="Feedforward adds +k·r₁ to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking."
+							hint="Feedforward adds +k·r₁ (k is the spring constant) to the law, so x_ss = r₁ exactly and e_ss = 0; it implies tracking."
 						/>
 					</div>
 			</Panel>
@@ -187,11 +187,8 @@ export function SimulateTab() {
 						) : (
 							<span className="faint">Results update on their own as you edit any input above.</span>
 						)}
-						<Learn title="Read the plot">
-							<p>{LEARNING.sim}</p>
-						</Learn>
 					</div>
-			</Panel>
+				</Panel>
 
 			<div className="grid grid--wide">
 				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (
@@ -199,7 +196,7 @@ export function SimulateTab() {
 				) : undefined}>
 					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <Empty>No simulation yet</Empty>}
 				</Panel>
-				<Panel title="Closed-Loop Poles" className={busy ? 'chart-busy' : ''}>
+				<Panel title="Closed-Loop Poles" className={busy ? 'chart-busy' : ''} right={<Learn title="How the pole map works"><p>{LEARNING.stability}</p></Learn>}>
 					{w.stability ? (
 						<>
 							<PoleZeroChart eigenvalues={eigenvalues ?? []} />
@@ -210,7 +207,7 @@ export function SimulateTab() {
 							</div>
 							<div className="row mt-2">
 								<span className="faint">Stability:</span>{' '}
-								{w.stability.stable ? <span>Stable ✓ · poles in the left half-plane</span> : <span>Unstable ✗ · increase Kp or Kd</span>}
+								{w.stability.stable ? <span>Stable ✓ · poles in the left half-plane</span> : <span>Unstable ✗ · at least one pole in the right half-plane</span>}
 							</div>
 						</>
 					) : (
@@ -220,7 +217,7 @@ export function SimulateTab() {
 			</div>
 
 			<div className="grid">
-				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="About the error band"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e stays inside it and never leaves. If the trace touches the edge again, settling counted from the last crossing.</p></Learn>}>
+				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="How the error band works"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e first stays inside it and never leaves again. If the trace exits the band at any point after that, settling is counted from its last exit.</p></Learn>}>
 					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <Empty>No simulation yet</Empty>}
 				</Panel>
 			</div>
@@ -239,7 +236,7 @@ export function SimulateTab() {
 					<div className="grid grid--3">
 						<MetricCard label="Damping ratio ζ" value={poleInfo.zeta === null ? 'n/a' : fmt(poleInfo.zeta, 3)} hint="ζ from the closed-loop poles. Below 1 the response rings, above 1 it crawls. n/a when the poles are real." />
 						<MetricCard label="Natural frequency ωₙ" value={poleInfo.omegaN === null ? 'n/a' : fmt(poleInfo.omegaN, 3)} sub="rad/s" hint="Undamped angular frequency from the pole magnitude." />
-						<MetricCard label="Pole-based settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="A model estimate from the dominant pole (2% rule: 4 / |Re λ|), not the measured settling time. The measured value is under Metrics." />
+						<MetricCard label="Pole-based settling estimate" value={poleInfo.settlingEstimate === null ? 'n/a' : `≈ ${fmt(poleInfo.settlingEstimate, 2)} s`} hint="A model estimate from the dominant pole (engineering rule of thumb: 4 / |Re λ|), not the measured settling time for the selected settling band. The measured value is under Metrics." />
 					</div>
 				</Panel>
 			)}
@@ -282,7 +279,7 @@ export function SimulateTab() {
 				)}
 			</Panel>
 
-			<Panel title="Compliance">
+			<Panel title="Behavior at a glance">
 				<div className="badge-row">
 					<Badge key="stability" tone={stabilityBadge.tone}>{stabilityBadge.text}</Badge>
 					<Badge key="tracking" tone={trackingBadge.tone}>{trackingBadge.text}</Badge>
@@ -298,13 +295,13 @@ export function SimulateTab() {
 						<MetricCard label="Analytic e_ss" value={xSS === null ? 'n/a' : fmt(eSS)} hint="Analytic steady-state error |r₁ − x_ss|; 0 with feedforward." />
 					</div>
 					<p className="faint mt-2">
-						PD-only state feedback leaves the static offset e_ss = k·r₁/(k + Kp); feedforward (+k·r₁) cancels the load so x_ss = r₁ and e_ss = 0.
+						PD-only state feedback leaves the static offset e_ss = k·r₁/(k + Kp); feedforward (+k·r₁, k the spring constant) cancels the load so x_ss = r₁ and e_ss = 0.
 					</p>
 				</Panel>
 			)}
 
 			<Panel title="Settling time across bands">
-				<p className="faint reset-top">The same run measured against each tolerance band. Tight bands require the response to hug the reference; a "Not reached" row is the steady-state offset described above.</p>
+				<p className="faint reset-top">The same run measured against each settling band. Tight bands require the response to hug the reference longer; a "Not reached" row means the response never stays inside that band.</p>
 				<SettlingBandTable metrics={metrics} empty="Run a simulation to see settling at each band." />
 			</Panel>
 

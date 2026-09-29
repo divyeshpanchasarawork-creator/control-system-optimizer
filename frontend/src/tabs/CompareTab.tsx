@@ -4,7 +4,7 @@ import { GitCompareArrows } from 'lucide-react'
 import { Badge, BusyNote, Callout, ChartCell, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
 import { OverlayChart } from '../components/charts'
 import type { ChartColor } from '../components/charts/palette'
-import { fmt } from '../components/common'
+import { fmt, fmtGain } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
 
@@ -165,7 +165,7 @@ export function CompareTab() {
 
 	return (
 		<div className="stack">
-			<Learn title="How to read the comparison">
+			<Learn title="How the comparison works">
 				<p>
 					The table lines up the manual run and the optimized run over the same system, horizon, time step and settling band.
 					The percentage shows how the optimized result moved relative to the manual one. <b>Lower tracking numbers are better</b>,
@@ -173,14 +173,14 @@ export function CompareTab() {
 				</p>
 			</Learn>
 
-			<Panel title="Run both controllers">
+			<Panel title="Compare both gains">
 				<div className="row">
 					<span className="faint">Both runs integrate the same plant from Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N·s/m, k = {fmt(w.springConstant)} N/m.</span>
 				</div>
 				<div className="row row--between">
-					<span className="faint">Manual K = [{fmt(w.manualGain[0])}, {fmt(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmt(w.optimizedGain[0])}, ${fmt(w.optimizedGain[1])}]` : ''}</span>
+					<span className="mono faint">Manual K = [{fmtGain(w.manualGain[0])}, {fmtGain(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmtGain(w.optimizedGain[0])}, ${fmtGain(w.optimizedGain[1])}]` : ''}</span>
 					<button className="btn primary" onClick={() => void runBoth()} disabled={!ready || pending}>
-						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : w.error ? 'Retry comparison' : ran ? 'Re-run comparison' : 'Compare gains'}
+						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : ran ? 'Re-run comparison' : 'Compare gains'}
 					</button>
 				</div>
 				{pending && (
@@ -202,12 +202,12 @@ export function CompareTab() {
 								The comparison below still re-simulates both gains on the current model, but the
 								breakdown and "why" describe the run it was launched with.
 							</span>
-							<button type="button" className="btn btn--sm" onClick={() => { window.location.hash = '#/lab/optimize' }}>Re-optimize</button>
+							<button type="button" className="btn btn--sm" onClick={() => { window.location.hash = '#/lab/optimize' }}>Re-run optimization</button>
 						</Callout>
 					</div>
 				) : (
 					<div className="row mt-3">
-						<span className="faint">Both runs match the current model. Edit any input and they refresh themselves.</span>
+						<span className="faint">Both columns were re-simulated on the current plant. Edit any input and they refresh on their own.</span>
 					</div>
 				))}
 			</Panel>
@@ -249,7 +249,7 @@ export function CompareTab() {
 							{opt ? (
 								<>
 									<p className="faint reset-top">
-										The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O
+										The optimizer minimized J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O{w.steadyStateErrorEnabled ? ' + wᵥ·e_ss' : ''}
 										{(manualMetrics && optMetrics) ? <> This is exactly what it bought over your manual K.</> : <> The measured deltas appear as soon as the comparison finishes.</>}
 									</p>
 									{manualMetrics && optMetrics && tradeoffSentence(manualMetrics, optMetrics) && (

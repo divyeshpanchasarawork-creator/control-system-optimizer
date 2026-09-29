@@ -6,11 +6,11 @@ import { useWorkspace } from '../state/WorkspaceContext'
 
 const LEARNING = {
 	optimize: 'The optimizer searches the gain box [Kp_min, Kp_max] × [Kd_min, Kd_max] for the pair K = (Kp, Kd) that minimizes the weighted objective J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O (+ wᵥ·e_ss when the steady-state term is enabled), where U is control energy ∫u² dt and e_ss is the analytic steady-state tracking error. Every term is normalized against a fixed positive scale derived from the problem, so results do not depend on any manual baseline gain. Lower J = better tracking with less control effort. Grid search sweeps the box exhaustively (slow but complete) and returns the full cost surface. Differential evolution evolves a population using mutation (F) and crossover (CR): fast, seeded, and reproducible.',
-	objective: 'The weights trade off competing goals. trackingError (wₑ) punishes accumulated deviation; control energy (wᵤ) punishes commanding the actuator hard; settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference; steadyStateError (wᵥ, optional) punishes the residual tracking offset directly. Raise a weight to favor that property. Terms are normalized against fixed scales derived from the problem, so J stays comparable across gain ranges. The presets set sensible starting points.',
+	objective: 'The weights trade off competing goals. Tracking error (wₑ) punishes accumulated deviation; control energy (wᵤ) punishes commanding the actuator hard; settling time (wₛ) punishes slow convergence; overshoot (wₒ) punishes overshooting the reference; steady-state error (wᵥ, optional) punishes the residual tracking offset directly. Raise a weight to favor that property. Terms are normalized against fixed scales derived from the problem, so J stays comparable across gain ranges. The presets set sensible starting points.',
 	formula: 'J = wₑ·IAE + wᵤ·U + wₛ·Tₛ + wₒ·O (+ wᵥ·e_ss when the steady-state term is enabled), where IAE is integrated position error ∫|r₁ − x₁| dt, U is control energy ∫u² dt, Tₛ is settling time (missing runs are penalized as the full horizon), O is overshoot %, and e_ss is the analytic steady-state tracking error. Each term is normalized by a fixed positive scale (IAE by |r₁|·T, energy by (k·|r₁|)²·T, settling by T, overshoot by 100, steady-state error by |r₁|). Lower J is better.',
 	convergence: 'The convergence curve shows the best objective J found at each progression step. Grid search improves monotonically as it evaluates more of the box; DE improves per generation. When the curve flattens, extra iterations stop paying off.',
 	grid: 'Grid search evaluates every point on a resolution × resolution lattice over the gain box. Lower resolution = fast, coarse; higher resolution = fine, slow. With "Return cost surface" on, the response includes the full heatmap: dark blue is low J (good), white/null is infeasible.',
-	de: 'DE keeps a population of candidate gain vectors. Each generation it mutates members (differentialWeight F scales the difference between two members) and crosses them (crossoverRate CR mixes in mutant genes). maxIterations limits generations; seed makes the run deterministic.',
+	de: 'DE keeps a population of candidate gain vectors. Each generation it mutates members (differential weight F scales the difference between two members) and crosses them (crossover rate CR mixes in mutant genes). maxIterations limits generations; seed makes the run deterministic.',
 	constraints: 'Constraints are off by default. When enabled, candidates that violate them are treated as infeasible. Limits cover peak force, overshoot, settling time, steady-state tracking error e_ss, and control energy U = ∫u² dt. The result reports achieved vs limit for each, and when no feasible candidate exists the response explains why.',
 }
 
@@ -160,7 +160,7 @@ export function OptimizeTab() {
 								<CheckField label="Return cost surface (2-D grid)" checked={w.includeCostSurface}
 									onChange={(v) => w.update({ includeCostSurface: v })} hint="When on, the response includes the full objective heatmap over the grid, plus per-cell IAE and control energy for the interactive tooltip." />
 							</div>
-							<div className="mt-2"><Learn title="About grid search"><p>{LEARNING.grid}</p></Learn></div>
+							<div className="mt-2"><Learn title="How grid search works"><p>{LEARNING.grid}</p></Learn></div>
 						</>
 					) : (
 						<>
@@ -184,7 +184,7 @@ export function OptimizeTab() {
 									</div>
 								</Disclosure>
 							</div>
-							<div className="mt-2"><Learn title="About differential evolution"><p>{LEARNING.de}</p></Learn></div>
+							<div className="mt-2"><Learn title="How differential evolution works"><p>{LEARNING.de}</p></Learn></div>
 						</>
 					)}
 			</Panel>
@@ -291,7 +291,7 @@ export function OptimizeTab() {
 								{
 									label: 'Control law',
 									mono: true,
-									value: <>u = −K(x − r){runFeedforward ? ' + k·r₁' : ''} · {runSaturation > 0 ? `u clamped to ±${fmt(runSaturation, 2)} N` : 'u unlimited'}</>,
+									value: <>u = −K(x − r){runFeedforward ? ' + k·r₁ (k = spring constant)' : ''} · {runSaturation > 0 ? `u clamped to ±${fmt(runSaturation, 2)} N` : 'u unlimited'}</>,
 								},
 							]}
 						/>
@@ -310,8 +310,8 @@ export function OptimizeTab() {
 								Nearest candidate K = [{nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]
 								{nearMiss.metrics && (
 									<>
-										{' '}· IAE {fmt(nearMiss.metrics.iae, 3)} · energy{' '}
-										{fmt(nearMiss.metrics.controlEffort, 1)}
+										{' '}· IAE {fmt(nearMiss.metrics.iae, 4)} · control energy{' '}
+										{fmt(nearMiss.metrics.controlEffort, 4)}
 									</>
 								)}
 								. This gain was rejected, so it is not applied to the plant.
@@ -353,7 +353,7 @@ export function OptimizeTab() {
 						</div>
 					)}
 
-					<Panel title="Optimization Result" className={busy ? 'chart-busy' : ''} right={<Learn title="Read the results"><p>{LEARNING.convergence}</p></Learn>}>
+					<Panel title="Optimization Result" className={busy ? 'chart-busy' : ''} right={<Learn title="How the convergence works"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid grid--3">
 							<MetricCard
 								hint={result?.feasible
@@ -386,7 +386,7 @@ export function OptimizeTab() {
 					</Panel>
 
 					{breakdown && (
-					<Panel title="Why this objective value?" className={busy ? 'chart-busy' : ''} right={<Learn title="Read the breakdown"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
+					<Panel title="Why this objective value?" className={busy ? 'chart-busy' : ''} right={<Learn title="How the breakdown works"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
 						<ObjectiveBreakdownTable
 							breakdown={breakdown}
 							notSettled={w.optimizerResult?.metrics?.settlingTime === null}
@@ -397,7 +397,7 @@ export function OptimizeTab() {
 
 					<Panel title="Settling time across bands" className={busy ? 'chart-busy' : ''}>
 						<p className="faint reset-top">
-							The reported gain measured against each tolerance band. A "Not reached" row means the response never
+							The reported gain measured against each settling band. A "Not reached" row means the response never
 							stays inside that band, which is what a residual steady-state offset looks like.
 						</p>
 						<SettlingBandTable
@@ -429,7 +429,7 @@ export function OptimizeTab() {
 
 					{runType === 'GRID_SEARCH' && hasSurface && (
 						<Panel title="Interactive cost surface · Kp × Kd" className={busy ? 'chart-busy' : ''}
-							right={<Learn title="Read the heatmap"><p>{LEARNING.grid}</p></Learn>}>
+							right={<Learn title="How the heatmap works"><p>Dark blue is low J (good), light/null is infeasible. Hover a cell to read its IAE and control energy; the ★ marks the grid optimum and ● marks the manual/current gain. The log scale also puts a level edge at J = 1, the scale the breakdown's 1.0 means.</p></Learn>}>
 							<CostSurfaceHeatmap
 								surface={surf as (number | null)[][]}
 								axisLabels={['Kp', 'Kd']}

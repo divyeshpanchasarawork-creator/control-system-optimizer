@@ -173,7 +173,8 @@ function SearchSection() {
 						? `All ${result.evaluated.toLocaleString()} pairs were stable enough to score. `
 						: `${result.scored.toLocaleString()} of ${result.evaluated.toLocaleString()} pairs were stable enough to score. `}
 					Cost is <span className="mono">J = 1·IAE + 0.1·U + 0.5·Ts + 0.5·O</span>, each term divided by a fixed
-					scale before weighting, so the weights stay comparable across the box. Lower is better.
+					scale before weighting, so the weights stay comparable across the box. Lower is better. These are the
+					lab's starting weights — the app's "Custom" preset.
 				</p>
 			</div>
 			<figure className="search__figure">
@@ -225,7 +226,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<a href="#simulate">Simulate</a>
 					<a href="#tune">Tune</a>
 					<a href="#search">Search</a>
-					<button className="landing__nav-cta" onClick={onEnter}>Open Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
+					<button className="landing__nav-cta" onClick={onEnter}>Open the Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
 				</nav>
 			</header>
 
@@ -260,7 +261,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 							variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
 						>
 							<button className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
-							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the System</a>
+							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the system</a>
 						</motion.div>
 					</motion.div>
 					<div className="landing-hero__figure">

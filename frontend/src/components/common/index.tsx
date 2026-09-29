@@ -81,7 +81,7 @@ export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBAC
 	return s + a.toLocaleString('en-US', { maximumFractionDigits: digits })
 }
 
-/** Gains always read with the same three decimals everywhere. */
+/** Gains read with up to three decimals, matching the metric precision. */
 export const fmtGain = (g: number) => fmt(g, 3)
 
 /**
