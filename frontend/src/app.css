@@ -5,12 +5,21 @@
 .workspace {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   padding: 16px;
   gap: 16px;
   background-image: radial-gradient(rgba(29, 29, 31, 0.08) 1.2px, transparent 1.4px);
   background-size: 22px 22px;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* Never let a wide element (a stray table, an unbreakable metric string)
+   push a horizontal scrollbar onto the whole app. `clip` trims instead of
+   creating a scroll container, so sticky positioning inside stays intact. */
+html,
+body {
+  overflow-x: clip;
 }
 
 /* ---------- Sidebar ---------- */
@@ -27,6 +36,7 @@
   position: sticky;
   top: 16px;
   height: calc(100vh - 32px);
+  height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -87,6 +97,16 @@
   width: 0;
 }
 
+/* Collapsed rail: every row is one clean centered icon. The brand keeps its
+   mark but loses its horizontal padding (the open-state 8px a side overflows
+   the 40px inner column), and the row gap is dropped so the width-0 label can
+   no longer nudge the icon off-center. */
+.sidebar--collapsed .brand {
+  justify-content: center;
+  gap: 0;
+  padding: 4px 0 12px;
+}
+
 .brand__name {
   font-weight: var(--weight-title);
   font-size: 15px;
@@ -145,6 +165,7 @@
 
 .sidebar--collapsed .nav__item {
   justify-content: center;
+  gap: 0;
   padding: var(--space-2) 0;
 }
 
@@ -221,6 +242,7 @@
 
 .sidebar--collapsed .sidebar-toggle {
   justify-content: center;
+  gap: 0;
   padding: var(--space-2) 0;
 }
 
@@ -238,13 +260,15 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-2);
   cursor: pointer;
+  flex: 0 0 40px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .main__menu-btn svg {
@@ -289,6 +313,7 @@
     width: min(276px, calc(100vw - 44px));
     flex-basis: min(276px, calc(100vw - 44px));
     height: calc(100vh - 16px);
+    height: calc(100dvh - 16px);
     box-shadow: 0 24px 64px -16px rgba(29, 29, 31, 0.28);
     transform: translateX(calc(-100% - 24px));
     transition: transform var(--dur) var(--ease);
@@ -309,9 +334,16 @@
     overflow: visible;
   }
 
+  .sidebar--collapsed .brand {
+    justify-content: flex-start;
+    gap: var(--space-2);
+    padding: 4px var(--space-2) 12px;
+  }
+
   .sidebar--collapsed .nav__item,
   .sidebar--collapsed .sidebar-toggle {
     justify-content: flex-start;
+    gap: var(--space-2);
     padding: var(--space-2) 12px;
   }
 
@@ -348,6 +380,9 @@
   width: 100%;
   max-width: var(--page-max);
   margin-inline: auto;
+  /* Let overscroll on the inner column end the pull-to-refresh gesture
+     instead of bouncing the whole shell on iOS. */
+  overscroll-behavior-y: contain;
 }
 
 .main__header {
@@ -481,6 +516,7 @@
   border-radius: var(--radius-lg);
   box-shadow: 0 1px 2px rgba(29, 29, 31, 0.05), 0 8px 28px -12px rgba(29, 29, 31, 0.16);
   overflow: visible;
+  min-width: 0;
   transition: border-color var(--dur);
 }
 
@@ -1667,9 +1703,89 @@
 
 @media (max-width: 1023px) {
   .grid--2,
-  .grid--3,
   .grid--wide,
   .grid--split {
     grid-template-columns: 1fr;
+  }
+  /* .grid--3 keeps two columns down to 560px: three tiny metric cards read
+     worse than two larger ones, and below that even pairs get cramped. */
+}
+
+/* Below this a pair of metric cards is about 170px each — usable, but the
+   reading distance for the label column ("Pole-based settling estimate")
+   buys nothing. Everything collapses to a single column. */
+@media (max-width: 560px) {
+  .grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The weight bar's three fixed columns (150px label, track, 120px value)
+   total roughly 330px just for the skeleton, before the page gutter, panel
+   padding and the slider course itself. Under 720px the label takes the top
+   row, the track and the number input share the bottom row. */
+@media (max-width: 720px) {
+  .weight-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .weight-bar__label {
+    grid-column: 1 / -1;
+  }
+
+  .weight-bar__track {
+    min-width: 0;
+  }
+}
+
+/* The hero's two result columns leave each on about 150px at 640px, which
+   ellipsizes the gain strings and the "why" caption. Stack them instead,
+   and let the key/value table wrap rather than stretch its label column to
+   fit a nowrap string. */
+@media (max-width: 640px) {
+  .result-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .kv__label {
+    white-space: normal;
+  }
+
+  .kv__value {
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The last tier: where a 375px phone or narrower needs bigger shortcuts.
+   The header loses height so the chart column wins it back, the page gutter
+   gives up four more pixels per side, and rows of the analyzer tables stop
+   hoarding horizontal room that simply is not there. */
+@media (max-width: 480px) {
+  :root {
+    --page-pad: var(--space-3);
+  }
+
+  .main__header {
+    height: 52px;
+  }
+
+  .main__title {
+    font-size: 18px;
+  }
+
+  .panel__body {
+    padding: var(--space-3);
+  }
+
+  .data th,
+  .data td {
+    padding: 6px var(--space-2);
+  }
+
+  .gain-card {
+    padding: 10px;
   }
 }

@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { Badge, CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
+import { Badge, Callout, CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
 import { fmt, fmtGain } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -243,6 +243,16 @@ export function OptimizeTab() {
 
 			{w.optimizerResult ? (
 				<div className="stack">
+					{w.staleContext && (
+						<Callout tone="warn">
+							<span>
+								This result was optimized against an earlier model
+								{w.staleContext.length === 1 ? `: ${w.staleContext[0]}.` : `. Changed: ${w.staleContext.join(', ')}.`}
+							</span>
+							<button className="btn btn--sm" onClick={() => void w.runOptimization()}>Re-run optimization</button>
+						</Callout>
+					)}
+
 					<div className="result-hero">
 						<span className="result-hero__stat">
 							<span className="result-hero__label">Objective J</span>

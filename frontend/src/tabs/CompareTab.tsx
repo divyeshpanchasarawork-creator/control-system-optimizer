@@ -96,6 +96,7 @@ export function CompareTab() {
 		feedforward: w.feedforward,
 		manualGain: w.manualGain.join(','),
 		optimizedGain: w.optimizedGain ? w.optimizedGain.join(',') : null,
+		optimizerRunId: w.optimizerRunId,
 		initialState: w.initialState.join(','),
 		reference: w.reference.join(','),
 		endTime: w.endTime,
@@ -109,7 +110,10 @@ export function CompareTab() {
 	const inFlightRef = useRef(false)
 
 	const manualMetrics = manualSim?.metrics ?? null
-	const optMetrics = optSim?.metrics ?? opt?.metrics ?? null
+	// Falling back to the optimizer's own metrics is only honest while the
+	// model still matches the run: once it drifts, those numbers describe a
+	// different plant than the manual column beside them.
+	const optMetrics = optSim?.metrics ?? (!w.staleContext ? opt?.metrics ?? null : null)
 
 	const runBoth = useCallback(async () => {
 		setPending(true)
@@ -144,13 +148,18 @@ export function CompareTab() {
 		if (!ready) return
 		if (inFlightRef.current) return
 		if (ranKeyRef.current === inputKey) return
-		// Claim the key up front. Assigning it after the await left a window in
-		// which an edit re-entered this effect and queued a second, overlapping
-		// pair of simulations.
-		ranKeyRef.current = inputKey
-		const id = setTimeout(() => { void runRef.current() }, 400)
+		// Claim the key only when the run actually fires, and re-evaluate when
+		// `pending` flips back to false, so an edit that lands while a run is in
+		// flight is picked up as soon as that run finishes instead of being
+		// dropped. Claiming up front opened exactly that gap: the key was marked
+		// done before the debounce elapsed, so a changed input re-entering this
+		// effect saw an already-claimed key and never rescheduled.
+		const id = setTimeout(() => {
+			ranKeyRef.current = inputKey
+			void runRef.current()
+		}, 400)
 		return () => clearTimeout(id)
-	}, [ready, inputKey])
+	}, [ready, inputKey, pending])
 
 	const breakdown = opt?.objectiveBreakdown
 
@@ -184,11 +193,23 @@ export function CompareTab() {
 						<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
 					</div>
 				)}
-				{ready && !pending && ran && (
+				{ready && !pending && ran && (w.staleContext ? (
+					<div className="mt-3">
+						<Callout tone="warn">
+							<span>
+								This result was optimized against an earlier model
+								{w.staleContext.length === 1 ? `: ${w.staleContext[0]}.` : `. Changed: ${w.staleContext.join(', ')}.`}{' '}
+								The comparison below still re-simulates both gains on the current model, but the
+								breakdown and "why" describe the run it was launched with.
+							</span>
+							<button type="button" className="btn btn--sm" onClick={() => { window.location.hash = '#/lab/optimize' }}>Re-optimize</button>
+						</Callout>
+					</div>
+				) : (
 					<div className="row mt-3">
 						<span className="faint">Both runs match the current model. Edit any input and they refresh themselves.</span>
 					</div>
-				)}
+				))}
 			</Panel>
 
 			<div className="grid grid--split">

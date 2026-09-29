@@ -116,6 +116,35 @@ export interface OptimizeRunConfig {
 	gainUpper: number[]
 	feedforward: boolean
 	saturation: number
+
+	// The inputs the objective and every simulation actually integrated. Panels
+	// that describe what the run was *about* (the breakdown, the "why", the
+	// optima) read these back so a result edited against a later model is
+	// clearly flagged instead of quietly contradicting the live panels.
+	mass: number
+	damping: number
+	springConstant: number
+	tracking: boolean
+
+	initialState: [number, number]
+	reference: [number, number]
+	endTime: number
+	timeStep: number
+	settlingBand: number
+
+	trackingErrorWeight: number
+	controlEffortWeight: number
+	settlingTimeWeight: number
+	overshootWeight: number
+	steadyStateErrorEnabled: boolean
+	steadyStateErrorWeight: number
+
+	constraintsEnabled: boolean
+	maxControl: number
+	maxOvershoot: number
+	maxSettlingTime: number
+	maxSteadyStateError: number
+	maxControlEnergy: number
 }
 
 export interface ObjectiveSpec {

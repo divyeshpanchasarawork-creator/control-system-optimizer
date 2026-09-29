@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Activity, BarChart3, Crosshair, Menu, PanelLeftClose, PanelLeftOpen, RotateCcw } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
@@ -106,13 +106,47 @@ export default function App() {
 		toast.success('Workspace reset to defaults', { id: 'workspace-reset' })
 	}
 
+	const menuBtnRef = useRef<HTMLButtonElement>(null)
+	const drawerRef = useRef<HTMLElement>(null)
+
+	// The drawer is a modal on touch devices: Esc closes it, focus moves into
+	// it on open and returns to the trigger on close. Without the focus round
+	// trip, keyboard and screen-reader users had no way back out of it.
+	useEffect(() => {
+		if (!drawerOpen) return
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') setDrawerOpen(false)
+		}
+		window.addEventListener('keydown', onKey)
+		const id = setTimeout(() => {
+			drawerRef.current?.querySelector<HTMLButtonElement>('.nav__item')?.focus()
+		}, 0)
+		return () => {
+			window.removeEventListener('keydown', onKey)
+			clearTimeout(id)
+			menuBtnRef.current?.focus()
+		}
+	}, [drawerOpen])
+
+	// Bottom-right toasts are out of thumb reach on phones and collide with
+	// the tab bar at the foot of the viewport, so slide them to the top where
+	// they also stop covering the trailing-edge data. The workspace tab bar
+	// is fixed to the bottom, so "top" is the only spot nothing else owns.
+	const [toastsTop, setToastsTop] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+	useEffect(() => {
+		const mq = window.matchMedia('(max-width: 767px)')
+		const onChange = () => setToastsTop(mq.matches)
+		mq.addEventListener('change', onChange)
+		return () => mq.removeEventListener('change', onChange)
+	}, [])
+
 	const tabOrder: TabId[] = ['simulate', 'optimize', 'compare']
 
 	return (
 		<div className="app">
 			<LiveStatus loading={w.loading} refreshing={w.refreshing} error={w.error} />
 			<Toaster
-				position="bottom-right"
+				position={toastsTop ? 'top-center' : 'bottom-right'}
 				toastOptions={{
 					duration: 5000,
 					style: {
@@ -147,7 +181,13 @@ export default function App() {
 					>
 						<div className="workspace">
 							{drawerOpen && <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
-							<aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${drawerOpen ? 'sidebar--open' : ''}`}>
+							<aside
+								ref={drawerRef}
+								className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${drawerOpen ? 'sidebar--open' : ''}`}
+								role={drawerOpen ? 'dialog' : undefined}
+								aria-modal={drawerOpen || undefined}
+								aria-label={drawerOpen ? 'Workspace navigation' : undefined}
+							>
 								<button className="brand" onClick={() => navigate({ view: 'landing' })} title="Back to landing">
 									<span className="brand__mark"><LogoMark size={22} /></span>
 									<span className="brand__text">
@@ -193,10 +233,10 @@ export default function App() {
 						<main className="main" aria-busy={w.loading !== null}>
 							<header className="main__header">
 								<div className="main__header-left">
-									<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation">
+									<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation" ref={menuBtnRef}>
 										<Menu />
 									</button>
-										<h1 className="main__title">{TAB_META[tab].label}</h1>
+									<h1 className="main__title">{TAB_META[tab].label}</h1>
 										<span className="main__header-badge">· {TAB_META[tab].badge}</span>
 									</div>
 									<div className="main__header-right">

@@ -1010,3 +1010,64 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Below 640px the hero's copy/demo stack and the section routes all reduce
+   to single columns and the header stops guessing at reserved nav width. */
+@media (max-width: 640px) {
+  .landing__top {
+    padding: var(--space-3) calc(var(--space-3) + var(--space-1));
+  }
+
+  .landing__brand-name {
+    display: none;
+  }
+
+  .landing-hero {
+    padding: calc(var(--space-6) + var(--space-1)) var(--space-5) var(--space-7);
+  }
+
+  .landing-hero__inner {
+    gap: var(--space-5);
+  }
+
+  .landing-hero__cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .landing-hero__cta-row .btn {
+    justify-content: center;
+  }
+
+  .landing-section {
+    padding: var(--space-7) var(--space-5) calc(var(--space-7) + var(--space-1));
+  }
+
+  .step {
+    flex: 1 1 100%;
+  }
+
+  .tradeoffs__traits {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .landing-cta {
+    padding: var(--space-7) var(--space-5) calc(var(--space-7) + var(--space-2));
+  }
+
+  .landing__footer-inner {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+  }
+}
+
+/* The floor: sub-360px android and the classic 320px iPhone. Tighter gutters,
+   and the footer text moves off its own line instead of squeezing next to
+   the brand. */
+@media (max-width: 380px) {
+  .landing__brand-name,
+  .landing__footer-dot {
+    display: none;
+  }
+}

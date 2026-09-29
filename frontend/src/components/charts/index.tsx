@@ -71,7 +71,7 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 
 	return (
 <ResponsiveContainer width="100%" height={200}>
-			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title="Tracking error over time">
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title={`${signalName} over time`}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { fmt } from '../components/common'
 import { api } from '../api/client'
 import type {
 	OptimizationResponse,
@@ -10,6 +11,67 @@ import type {
 	StabilityResponse,
 	SystemDescriptor,
 } from '../api/types'
+
+/**
+ * The live inputs a run's objective depends on. If any of these drift after an
+ * optimization lands, its breakdown, "why" and optima no longer describe the
+ * model on screen, and the result panels must say so instead of pretending.
+ */
+interface RunSensitiveInputs {
+	mass: number
+	damping: number
+	springConstant: number
+	tracking: boolean
+	feedforward: boolean
+	saturation: number
+	initialState: [number, number]
+	reference: [number, number]
+	endTime: number
+	timeStep: number
+	settlingBand: number
+	trackingErrorWeight: number
+	controlEffortWeight: number
+	settlingTimeWeight: number
+	overshootWeight: number
+	steadyStateErrorEnabled: boolean
+	steadyStateErrorWeight: number
+	constraintsEnabled: boolean
+	maxControl: number
+	maxOvershoot: number
+	maxSettlingTime: number
+	maxSteadyStateError: number
+	maxControlEnergy: number
+}
+
+const neq = (a: number, b: number) => Math.abs(a - b) > 1e-9
+const changed = (a: [number, number], b: [number, number]) => neq(a[0], b[0]) || neq(a[1], b[1])
+
+function describeContextDrift(cfg: OptimizeRunConfig, live: RunSensitiveInputs): string[] {
+	const out: string[] = []
+	if (neq(cfg.mass, live.mass)) out.push(`mass ${fmt(cfg.mass, 2)} → ${fmt(live.mass, 2)} kg`)
+	if (neq(cfg.damping, live.damping)) out.push(`damping ${fmt(cfg.damping, 2)} → ${fmt(live.damping, 2)} N·s/m`)
+	if (neq(cfg.springConstant, live.springConstant)) out.push(`spring constant ${fmt(cfg.springConstant, 2)} → ${fmt(live.springConstant, 2)} N/m`)
+	if (cfg.tracking !== live.tracking || cfg.feedforward !== live.feedforward || neq(cfg.saturation, live.saturation)) {
+		out.push('tracking / feedforward / saturation')
+	}
+	if (changed(cfg.reference, live.reference) || changed(cfg.initialState, live.initialState)) out.push('reference / initial state')
+	if (neq(cfg.endTime, live.endTime) || neq(cfg.timeStep, live.timeStep)) out.push('horizon / time step')
+	if (neq(cfg.settlingBand, live.settlingBand)) out.push(`settling band ${fmt(cfg.settlingBand, 0)}% → ${fmt(live.settlingBand, 0)}%`)
+	if (
+		neq(cfg.trackingErrorWeight, live.trackingErrorWeight) ||
+		neq(cfg.controlEffortWeight, live.controlEffortWeight) ||
+		neq(cfg.settlingTimeWeight, live.settlingTimeWeight) ||
+		neq(cfg.overshootWeight, live.overshootWeight) ||
+		cfg.steadyStateErrorEnabled !== live.steadyStateErrorEnabled ||
+		neq(cfg.steadyStateErrorWeight, live.steadyStateErrorWeight)
+	) {
+		out.push('objective weights')
+	}
+	const cfgLimits = [cfg.maxControl, cfg.maxOvershoot, cfg.maxSettlingTime, cfg.maxSteadyStateError, cfg.maxControlEnergy]
+	const liveLimits = [live.maxControl, live.maxOvershoot, live.maxSettlingTime, live.maxSteadyStateError, live.maxControlEnergy]
+	if (cfg.constraintsEnabled !== live.constraintsEnabled || cfgLimits.some((v, i) => neq(v, liveLimits[i]))) out.push('constraints')
+	return out
+}
 
 export interface WorkspaceState {
 	systemDescriptor: SystemDescriptor | null
@@ -65,6 +127,12 @@ export interface WorkspaceState {
 	optimizerResult: OptimizationResponse | null
 	/** The form settings the current optimizerResult was launched with. */
 	optimizerConfig: OptimizeRunConfig | null
+	/** A counter bumped after every completed optimization, so panels can
+	 * distinguish "ran again with the same inputs" from "never re-ran". */
+	optimizerRunId: number | null
+	/** Human-readable list of inputs that drifted since the last optimization.
+	 * Non-null only while a result exists and the model no longer matches it. */
+	staleContext: string[] | null
 
 	loading: string | null
 	refreshing: boolean
@@ -141,6 +209,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 	const [stability, setStability] = useState<StabilityResponse | null>(null)
 	const [optimizerResult, setOptimizerResult] = useState<OptimizationResponse | null>(null)
 	const [optimizerConfig, setOptimizerConfig] = useState<OptimizeRunConfig | null>(null)
+	const [optimizerRunId, setOptimizerRunId] = useState<number | null>(null)
 
 	const [loading, setLoading] = useState<string | null>(null)
 	const [refreshing, setRefreshing] = useState(false)
@@ -254,6 +323,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 			gainUpper: [...gainUpper],
 			feedforward,
 			saturation,
+			mass,
+			damping,
+			springConstant,
+			tracking,
+			initialState: [initialState[0], initialState[1]],
+			reference: [reference[0], reference[1]],
+			endTime,
+			timeStep,
+			settlingBand,
+			trackingErrorWeight,
+			controlEffortWeight,
+			settlingTimeWeight,
+			overshootWeight,
+			steadyStateErrorEnabled,
+			steadyStateErrorWeight,
+			constraintsEnabled,
+			maxControl,
+			maxOvershoot,
+			maxSettlingTime,
+			maxSteadyStateError,
+			maxControlEnergy,
 		}
 		try {
 			const system = {
@@ -295,6 +385,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 			})
 			setOptimizerResult(res)
 			setOptimizerConfig(config)
+			setOptimizerRunId((n) => (n ?? 0) + 1)
 			// A feasible result must carry a full two-gain vector before it is
 			// allowed to replace the manual gain; never fabricate the missing
 			// axis from the one that was returned.
@@ -320,6 +411,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 		setStability(null)
 		setOptimizerResult(null)
 		setOptimizerConfig(null)
+		setOptimizerRunId(null)
 		setOptimizedGain(null)
 		setUseOptimized(false)
 		setError(null)
@@ -367,6 +459,7 @@ setSteadyStateErrorEnabled(false)
 		setStability(null)
 		setOptimizerResult(null)
 		setOptimizerConfig(null)
+		setOptimizerRunId(null)
 		setError(null)
 	}, [])
 
@@ -409,6 +502,19 @@ setSteadyStateErrorEnabled(false)
 		if (patch.steadyStateErrorEnabled !== undefined) setSteadyStateErrorEnabled(patch.steadyStateErrorEnabled)
 		if (patch.steadyStateErrorWeight !== undefined) setSteadyStateErrorWeight(patch.steadyStateErrorWeight)
 	}, [])
+
+	const staleContext = optimizerConfig && optimizerResult
+		? (() => {
+			const drift = describeContextDrift(optimizerConfig, {
+				mass, damping, springConstant, tracking, feedforward, saturation,
+				initialState, reference, endTime, timeStep, settlingBand,
+				trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight,
+				steadyStateErrorEnabled, steadyStateErrorWeight,
+				constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, maxSteadyStateError, maxControlEnergy,
+			})
+			return drift.length > 0 ? drift : null
+		})()
+		: null
 
 	const value: WorkspaceState = {
 		systemDescriptor,
@@ -453,6 +559,8 @@ simulation,
 		stability,
 		optimizerResult,
 		optimizerConfig,
+		optimizerRunId,
+		staleContext,
 		loading,
 		refreshing,
 		error,
