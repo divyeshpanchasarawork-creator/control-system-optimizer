@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import {
 	CartesianGrid,
 	Line,
@@ -18,12 +19,27 @@ import type { MetricSurfaces, SimulationResponse } from '../../api/types'
 import { Empty, fmt } from '../common'
 import type { ChartColor } from './palette'
 import { chartColors, hatchPattern } from './palette'
+import { DRAW_MS } from '../../motionPresets'
 
 const fmtTick = (v: unknown) => (typeof v === 'number' ? String(Number(v.toFixed(2))) : String(v))
 
 /** Recharts renders `null` as a gap; a masked 0 would draw a dive to zero. */
 const fmtValue = (value: unknown, digits: number) => (typeof value === 'number' ? value.toFixed(digits) : '--')
 const tooltipValue = (value: unknown, name: unknown, digits = 3) => [fmtValue(value, digits), String(name)] as [string, string]
+
+/**
+ * Shared draw-in props for the primary series. The reference and spec lines
+ * stay static so the story is the data arriving, and reduced motion snaps
+ * the whole lot to instant (the same preference the rest of the app reads).
+ */
+function useChartDraw() {
+	const reduce = useReducedMotion()
+	return {
+		isAnimationActive: !reduce,
+		animationDuration: DRAW_MS,
+		animationEasing: 'ease-out' as const,
+	}
+}
 
 /**
  * Two or more series over a shared time axis. Compare uses this three times
@@ -35,6 +51,7 @@ export function OverlayChart({ data, series, height = 180 }: {
 	height?: number
 }) {
 	const c = chartColors()
+	const draw = useChartDraw()
 	return (
 		<ResponsiveContainer width="100%" height={height}>
 			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }} title={series.map((s) => s.name).join(' vs ')} role="img" tabIndex={-1}>
@@ -49,7 +66,7 @@ export function OverlayChart({ data, series, height = 180 }: {
 						dot={false}
 						strokeWidth={2.2}
 						strokeDasharray={s.dashed ? '6 4' : undefined}
-						isAnimationActive={false}
+						{...draw}
 						aria-label={s.name}
 					/>
 				))}
@@ -65,6 +82,7 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 	const c = chartColors()
 	const color = kind === 'position' ? c.blue : kind === 'velocity' ? c.green : c.amber
 	const signalName = kind === 'position' ? 'Position' : kind === 'velocity' ? 'Velocity' : 'Control'
+	const draw = useChartDraw()
 
 	const signalKey = kind === 'control'
 		? (p: { time: number; control?: number[] }) => p.control?.[0] ?? null
@@ -89,7 +107,7 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 						isAnimationActive={false}
 					/>
 				)}
-				<Line name={signalName} dataKey={signalKey} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+				<Line name={signalName} dataKey={signalKey} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" {...draw} />
 			</LineChart>
 		</ResponsiveContainer>
 	)
@@ -104,6 +122,7 @@ export function PositionChart({ response, band, xSS, focused }: {
 	const data = response.trajectory || []
 	const c = chartColors()
 	const color = c.blue
+	const draw = useChartDraw()
 	const r1 = data[0]?.reference?.[0]
 	const refMag = Math.abs(r1 ?? 0)
 	const bandAbs = (band / 100) * refMag
@@ -146,7 +165,7 @@ export function PositionChart({ response, band, xSS, focused }: {
 						<ReferenceLine y={bandHigh} stroke={c.blue} strokeDasharray="4 4" strokeOpacity={0.7} ifOverflow="extendDomain" />
 					</>
 				)}
-				<Line name="Position" dataKey={(p: { state: number[] }) => p.state?.[0] ?? null} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" isAnimationActive={false} />
+				<Line name="Position" dataKey={(p: { state: number[] }) => p.state?.[0] ?? null} stroke={color} dot={false} strokeWidth={2.2} strokeLinecap="round" {...draw} />
 			</LineChart>
 		</ResponsiveContainer>
 	)
@@ -159,6 +178,7 @@ export function ErrorChart({ response, band }: { response: SimulationResponse; b
 	const showBand = bandAbs > 0 && refMag > 0
 	const c = chartColors()
 	const color = c.red
+	const draw = useChartDraw()
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
@@ -186,7 +206,7 @@ export function ErrorChart({ response, band }: { response: SimulationResponse; b
 					dot={false}
 					strokeWidth={2.2}
 					strokeLinecap="round"
-					isAnimationActive={false}
+					{...draw}
 				/>
 			</LineChart>
 		</ResponsiveContainer>
@@ -220,6 +240,7 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 	const finalJ = plot[plot.length - 1]?.bestCost
 	const xLabel = optimizerType === 'GRID_SEARCH' ? 'Evaluations' : 'Generations'
 	const c = chartColors()
+	const draw = useChartDraw()
 
 	const annotated = finalJ !== undefined
 	return (
@@ -232,7 +253,7 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 					<ReferenceLine y={finalJ} stroke={c.blue} strokeDasharray="4 4" label={{ value: `final J = ${Number(finalJ).toFixed(4)}`, fontSize: 11, fill: c.blue, position: 'insideBottomLeft' }} />
 				)}
 				<Tooltip formatter={(v) => tooltipValue(v, 'Best J', 4)} labelFormatter={(l) => `${xLabel.replace(/s$/, '')} ${l}`} />
-				<Line dataKey="bestCost" name="Best J" stroke={c.green} dot={false} strokeWidth={2.2} isAnimationActive={false} />
+				<Line dataKey="bestCost" name="Best J" stroke={c.green} dot={false} strokeWidth={2.2} {...draw} />
 			</LineChart>
 		</ResponsiveContainer>
 	)

@@ -1338,27 +1338,40 @@ body {
   font-weight: var(--weight-strong);
   color: var(--text);
   cursor: pointer;
-  transition: background var(--dur), border-color var(--dur);
+  transition: background var(--dur), border-color var(--dur), color var(--dur), transform var(--dur), box-shadow var(--dur);
 }
 
 .btn:hover {
   border-color: var(--blue);
 }
 
+.btn:active {
+  transform: scale(0.99);
+}
+
+/* The lift is a fine-pointer nicety; on touch it would read as a trap. */
+@media (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+  }
+}
+
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn.primary {
   background: var(--blue);
   border-color: var(--blue);
   color: var(--on-accent);
-  box-shadow: 0 6px 16px -6px rgba(10, 132, 255, 0.5);
+  box-shadow: var(--glow-blue);
 }
 
 .btn.primary:hover {
   background: var(--blue-2);
+  box-shadow: var(--glow-blue);
 }
 
 .btn.btn--block {

@@ -6,6 +6,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import { LogoMark } from './components/Landing'
 import LandingPage from './components/landing/LandingPage'
 import { useWorkspace } from './state/WorkspaceContext'
+import { useMotion } from './motionPresets'
 
 const SimulateTab = lazy(() => import('./tabs/SimulateTab'))
 const OptimizeTab = lazy(() => import('./tabs/OptimizeTab'))
@@ -61,6 +62,8 @@ export default function App() {
 	const w = useWorkspace()
 	const [route, setRoute] = useState(() => parseHash(window.location.hash))
 	const [drawerOpen, setDrawerOpen] = useState(false)
+	const pageTransition = useMotion('page')
+	const tabTransition = useMotion('tab')
 	const [collapsed, setCollapsed] = useState(() => {
 		try {
 			return localStorage.getItem(LS_KEY) === '1'
@@ -168,7 +171,7 @@ export default function App() {
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0, y: -8 }}
-						transition={{ duration: 0.24, ease: 'easeOut' }}
+						transition={pageTransition}
 					>
 						<LandingPage onEnter={() => navigate({ view: 'lab', tab: 'simulate' })} />
 					</motion.div>
@@ -178,7 +181,7 @@ export default function App() {
 						initial={{ opacity: 0, y: 8 }}
 						animate={{ opacity: 1, y: 0 }}
 						exit={{ opacity: 0 }}
-						transition={{ duration: 0.24, ease: 'easeOut' }}
+						transition={pageTransition}
 					>
 						<div className="workspace">
 							{drawerOpen && <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
@@ -251,7 +254,7 @@ export default function App() {
 											initial={{ opacity: 0, y: 8 }}
 											animate={{ opacity: 1, y: 0 }}
 											exit={{ opacity: 0, y: -8 }}
-											transition={{ duration: 0.18, ease: 'easeOut' }}
+											transition={tabTransition}
 										>
 											<Suspense fallback={<div className="tab-loading">Loading…</div>}>
 												{tab === 'simulate' && <SimulateTab />}

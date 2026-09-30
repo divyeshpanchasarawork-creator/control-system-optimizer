@@ -1,6 +1,8 @@
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
+
+import { useMotion } from '../../motionPresets'
 
 const FALLBACK = 'Not available'
 
@@ -83,6 +85,26 @@ export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBAC
 
 /** Gains read with up to three decimals, matching the metric precision. */
 export const fmtGain = (g: number) => fmt(g, 3)
+
+/**
+ * One reveal recipe for scroll-triggered sections. Fires once per viewport, fades
+ * up a fixed distance through the shared `reveal` preset, so every "appears as I
+ * scroll" moment on the landing page behaves exactly like every other (and snaps
+ * to instant for reduced-motion users, like everything else).
+ */
+export function MotionView({ children, className }: { children: ReactNode; className?: string }) {
+	return (
+		<motion.div
+			className={className}
+			initial={{ opacity: 0, y: 16 }}
+			whileInView={{ opacity: 1, y: 0 }}
+			viewport={{ once: true, margin: '-80px' }}
+			transition={useMotion('reveal')}
+		>
+			{children}
+		</motion.div>
+	)
+}
 
 /** The metric readings both tabs compare. `settling` maps to `settlingTime`. */
 export type MetricKey = 'finalError' | 'iae' | 'ise' | 'maxAbsError' | 'overshoot' | 'settling' | 'controlEffort' | 'maxControl'
@@ -371,7 +393,7 @@ export function Info({ text }: { text: string }) {
 export function Learn({ title, children }: { title: string; children: ReactNode }) {
 	const [open, setOpen] = useState(false)
 	const bodyId = useId()
-	const reduceMotion = useReducedMotion()
+	const heightTransition = useMotion('height')
 	return (
 		<div className="learn">
 			<button type="button" className="learn__summary" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? bodyId : undefined}>
@@ -391,7 +413,7 @@ export function Learn({ title, children }: { title: string; children: ReactNode 
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: 'auto', opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
-						transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: 'easeOut' }}
+						transition={heightTransition}
 					>
 						{children}
 					</motion.div>
@@ -420,7 +442,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 }) {
 	const [open, setOpen] = useState(defaultOpen)
 	const bodyId = useId()
-	const reduceMotion = useReducedMotion()
+	const heightTransition = useMotion('height')
 	return (
 		<div className={`disclosure${open ? ' disclosure--open' : ''}`}>
 			<button
@@ -447,7 +469,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: 'auto', opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
-						transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: 'easeOut' }}
+						transition={heightTransition}
 					>
 						{children}
 					</motion.div>

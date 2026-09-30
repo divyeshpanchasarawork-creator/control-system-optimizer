@@ -1,5 +1,5 @@
 import { Fragment, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
 import { LogoMark } from '../Landing'
 import type { LabParams } from './LandingSim'
@@ -7,6 +7,7 @@ import { presetDamping, searchGains, simulateClosedLoop, stepResponse, zetaOmega
 import MassSpringDamperSim from './hero/MassSpringDamperSim'
 import TuneSection from './TuneSection'
 import { StepTraceView, pointsToPath } from './TraceView'
+import { transitionFor } from '../../motionPresets'
 
 const HERO_BASE: Omit<LabParams, 'c'> = { m: 1, k: 2, kp: 10, kd: 0 }
 
@@ -214,6 +215,15 @@ const STEPS = [
 ]
 
 export function LandingPage({ onEnter }: { onEnter: () => void }) {
+	const reduce = !!useReducedMotion()
+	const heroParent = {
+		hidden: {},
+		show: reduce ? {} : { transition: { staggerChildren: 0.09 } },
+	}
+	const heroChild = {
+		hidden: { opacity: 0, y: 16 },
+		show: { opacity: 1, y: 0, transition: transitionFor('heroFade', reduce) },
+	}
 	return (
 		<div className="landing">
 			<header className="landing__top">
@@ -240,29 +250,29 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<motion.div
 						initial="hidden"
 						animate="show"
-						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
+						variants={heroParent}
 					>
 						<motion.p
 							className="landing-hero__eyebrow"
-							variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
+							variants={heroChild}
 						>LINEAR CONTROL LAB</motion.p>
 						<motion.h1
 							className="landing-hero__title"
-							variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } }}
+							variants={heroChild}
 						>
 							Design control systems. <br />
 							See the dynamics <em>behave</em>.
 						</motion.h1>
 						<motion.p
 							className="landing-hero__subtitle"
-							variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } } }}
+							variants={heroChild}
 						>
 							A thinking spring-mass-damper. Tune the feedback gains, watch the closed-loop poles move, and
 							search for the design that clears your specs.
 						</motion.p>
 						<motion.div
 							className="landing-hero__cta-row"
-							variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
+							variants={heroChild}
 						>
 							<button type="button" className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
 							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the system</a>
