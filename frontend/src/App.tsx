@@ -150,13 +150,14 @@ export default function App() {
 				toastOptions={{
 					duration: 5000,
 					style: {
-						background: '#fff',
-						color: '#1d1d1f',
-						border: '1px solid #e5e5ea',
-						borderRadius: 12,
-						fontSize: 13,
-						boxShadow: '0 12px 32px -8px rgba(29, 29, 31, 0.18)',
-						padding: '10px 14px',
+						background: 'var(--glass)',
+						color: 'var(--text)',
+						border: '1px solid var(--glass-border)',
+						backdropFilter: 'blur(var(--glass-blur))',
+						borderRadius: 'var(--radius-md)',
+						fontSize: 'var(--fs-caption)',
+						boxShadow: 'var(--shadow-lg)',
+						padding: 'var(--space-3) var(--space-4)',
 					},
 				}}
 			/>

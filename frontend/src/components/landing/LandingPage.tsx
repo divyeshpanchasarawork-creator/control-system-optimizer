@@ -231,6 +231,11 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 			</header>
 
 			<section className="landing-hero" id="top">
+				<div className="landing-hero__glow" aria-hidden="true">
+					<span className="landing-hero__glow-b landing-hero__glow-b--one" />
+					<span className="landing-hero__glow-b landing-hero__glow-b--two" />
+					<span className="landing-hero__glow-b landing-hero__glow-b--three" />
+				</div>
 				<div className="landing-hero__inner">
 					<motion.div
 						initial="hidden"

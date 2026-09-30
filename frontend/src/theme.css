@@ -47,6 +47,25 @@
   --chart-hatch: #f4f4f7;
   --chart-hatch-2: #ececf1;
 
+  /* Cost ramp: one colour story for "cheap vs expensive", shared by the
+     heatmap cells, the landing search map and every legend. */
+  --cost-hue-min: 218;
+  --cost-hue-max: 252;
+  --cost-light-min: 91%;
+  --cost-light-max: 55%;
+
+  /* Frosted surfaces. One blur+saturation hairline treatment everywhere
+     glass appears; the strong step is for the shell, the base for floats. */
+  --glass: color-mix(in srgb, var(--surface) 72%, transparent);
+  --glass-border: color-mix(in srgb, var(--border) 72%, transparent);
+  --glass-blur: 16px;
+  --glass-blur-strong: 24px;
+  --glass-saturate: 1.1;
+
+  /* Soft glows: lift for the primary actions and the brand surfaces. */
+  --glow-blue: 0 8px 24px -8px color-mix(in srgb, var(--blue) 45%, transparent);
+  --glow-brand: 0 10px 28px -8px color-mix(in srgb, var(--brand-accent) 45%, transparent);
+
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 12px 32px -8px rgba(0, 0, 0, 0.14), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
 
@@ -117,6 +136,10 @@ body,
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--sans);
   font-size: var(--fs-body);
@@ -166,4 +189,21 @@ h4 {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+
+/* Reduced motion is a system-wide preference, not a per-component one. CSS
+   transitions, keyframes and smooth scrolling all snap; framer-motion reads
+   the same preference through its own hook into a shared preset list. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
 }

@@ -50,7 +50,7 @@ export function StepTraceView({ tMax = 8, ref = 1, children }: StepTraceProps) {
 			))}
 
 			{/* reference */}
-			<line x1={PAD_L} y1={refY} x2={W - PAD_R} y2={refY} stroke="#0a84ff" strokeDasharray="6 5" strokeWidth="1.2" />
+			<line x1={PAD_L} y1={refY} x2={W - PAD_R} y2={refY} style={{ stroke: 'var(--blue)' }} strokeDasharray="6 5" strokeWidth="1.2" />
 			<text x={W - PAD_R - 4} y={refY - 4} textAnchor="end" className="trace__tick">r</text>
 
 			{children}

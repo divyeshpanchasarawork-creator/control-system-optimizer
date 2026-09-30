@@ -23,10 +23,10 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-3) var(--gutter);
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .landing__brand {
@@ -140,6 +140,7 @@
 /* ---------- Hero ---------- */
 .landing-hero {
   position: relative;
+  overflow: hidden;
   padding: calc(var(--space-7) + var(--space-2)) var(--gutter) calc(var(--space-7) + var(--space-3));
   border-bottom: 1px solid var(--border);
   background:
@@ -148,7 +149,64 @@
     var(--bg);
 }
 
+/* Aura wash: blurred colour blobs drifting slowly behind the copy and the
+   sim. Decorative only; the sim itself stays the focus. The drift is a
+   transform-only animation so it costs a composite, not a layout, and it
+   dies with the global reduced-motion switch. */
+.landing-hero__glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.landing-hero__glow-b {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.landing-hero__glow-b--one {
+  width: 540px;
+  height: 540px;
+  top: -200px;
+  right: 6%;
+  background: color-mix(in srgb, var(--blue) 26%, transparent);
+  animation: hero-drift 24s var(--ease) infinite alternate;
+}
+
+.landing-hero__glow-b--two {
+  width: 460px;
+  height: 460px;
+  bottom: -180px;
+  left: 0%;
+  background: color-mix(in srgb, var(--brand-accent) 24%, transparent);
+  animation: hero-drift 28s var(--ease) infinite alternate-reverse;
+}
+
+.landing-hero__glow-b--three {
+  width: 320px;
+  height: 320px;
+  top: 20%;
+  left: 46%;
+  background: color-mix(in srgb, var(--chart-cyan) 16%, transparent);
+  animation: hero-drift 32s var(--ease) infinite alternate;
+}
+
+@keyframes hero-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-28px, 20px, 0) scale(1.08);
+  }
+}
+
 .landing-hero__inner {
+  position: relative;
+  z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
@@ -195,6 +253,21 @@
 .landing-hero__figure {
   width: 100%;
   min-width: 0;
+  align-self: stretch;
+  padding: var(--space-4);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), var(--glow-brand);
+}
+
+/* The hero sim ships its own card; inside the glass figure that would be a
+   panel inside a panel, so the inner card flattens to the figure itself. */
+.landing-hero__figure .lab-sim__figure {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 /* ---------- Sections ---------- */
