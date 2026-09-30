@@ -701,10 +701,6 @@ body {
   gap: 8px;
 }
 
-.badge-row--muted .badge {
-  opacity: 0.55;
-}
-
 .callout {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
@@ -912,12 +908,6 @@ body {
   border-radius: var(--radius-full);
   background: linear-gradient(90deg, var(--blue), var(--brand-accent));
   transition: width var(--dur) var(--ease);
-}
-
-.weight-bar__value {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
 }
 
 /* ---------- Kp / Kd gain ---------- */
@@ -1297,10 +1287,6 @@ body {
   text-align: right;
 }
 
-.field--reason {
-  min-height: 80px;
-}
-
 .check-field {
   display: flex;
   align-items: center;
@@ -1369,10 +1355,6 @@ body {
   background: var(--blue-2);
 }
 
-.btn.secondary {
-  color: var(--text-2);
-}
-
 .btn.btn--block {
   width: 100%;
 }
@@ -1391,20 +1373,6 @@ body {
 
 .btn-row--end {
   justify-content: flex-end;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--blue);
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
-  font-weight: var(--weight-strong);
-}
-
-.btn-link:hover {
-  text-decoration: underline;
 }
 
 .radio-list {
@@ -1659,12 +1627,6 @@ body {
   margin: var(--space-3) 0;
 }
 
-.divider {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-4) 0;
-}
-
 .row {
   display: flex;
   align-items: center;
@@ -1691,7 +1653,16 @@ body {
    what sets these tiers rather than round viewport numbers: three columns
    need real width, two are the laptop case, one is the narrow case.
    .grid--auto is deliberately absent from all of them: it reflows on its
-   own via auto-fill. */
+   own via auto-fill.
+
+   Canonical tiers, largest first, in CSS pixels (landing.css reuses the
+   900/640/380 subset):
+     1279  three-up readings drop to two columns
+     1023  side-by-side fields and split panels drop to one column
+      720  the weight-bar skeleton takes the two-row layout
+      640  the result hero and key/value rows stack
+      560  even paired metric cards go single column
+      480  phones: tighter page pad, shorter header, denser tables   */
 @media (max-width: 1279px) {
   /* Two columns instead of three. At this width a three-up row of readings
      is left with roughly 220px each, which wraps labels like "Pole-based
@@ -1714,11 +1685,6 @@ body {
 /* Below this a pair of metric cards is about 170px each — usable, but the
    reading distance for the label column ("Pole-based settling estimate")
    buys nothing. Everything collapses to a single column. */
-@media (max-width: 560px) {
-  .grid--3 {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* The weight bar's three fixed columns (150px label, track, 120px value)
    total roughly 330px just for the skeleton, before the page gutter, panel
@@ -1759,6 +1725,12 @@ body {
   }
 }
 
+@media (max-width: 560px) {
+  .grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The last tier: where a 375px phone or narrower needs bigger shortcuts.
    The header loses height so the chart column wins it back, the page gutter
    gives up four more pixels per side, and rows of the analyzer tables stop
@@ -1782,10 +1754,10 @@ body {
 
   .data th,
   .data td {
-    padding: 6px var(--space-2);
+    padding: 4px var(--space-2);
   }
 
   .gain-card {
-    padding: 10px;
+    padding: var(--space-2) var(--space-3);
   }
 }

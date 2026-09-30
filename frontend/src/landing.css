@@ -79,24 +79,17 @@
   background: var(--surface-2);
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons ----------
+   The lab's `.btn` supplies the shared skeleton; only the handful of props
+   that differ on the landing page are re-declared here (plus the transparent
+   base border, because the landing ghost button is an <a href>). */
 .landing .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  border-radius: var(--radius-sm);
   padding: var(--space-3) calc(var(--space-4) + var(--space-1));
   font-size: var(--fs-body);
-  font-weight: var(--weight-strong);
-  cursor: pointer;
   font-family: var(--sans);
   text-decoration: none;
   border: 1px solid transparent;
-  background: var(--surface);
-  color: var(--text);
   letter-spacing: var(--tracking-label);
-  transition: background var(--dur), border-color var(--dur);
 }
 
 .landing .btn--primary {
@@ -1066,7 +1059,6 @@
    and the footer text moves off its own line instead of squeezing next to
    the brand. */
 @media (max-width: 380px) {
-  .landing__brand-name,
   .landing__footer-dot {
     display: none;
   }

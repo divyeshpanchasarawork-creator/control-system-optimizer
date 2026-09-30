@@ -233,7 +233,6 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 			<section className="landing-hero" id="top">
 				<div className="landing-hero__inner">
 					<motion.div
-						className="landing-hero__copy"
 						initial="hidden"
 						animate="show"
 						variants={{ hidden: {}, show: { transition: { staggerChildren: 0.09 } } }}
@@ -280,7 +279,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 						<Fragment key={s.title}>
 							<li className="step">
 								<span className="step__mark mono">{s.mark}</span>
-								<div className="step__body">
+								<div>
 									<h3 className="step__title">{s.title}</h3>
 									<p className="step__text">{s.body}</p>
 								</div>

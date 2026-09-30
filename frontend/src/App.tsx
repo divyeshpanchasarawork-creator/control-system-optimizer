@@ -143,7 +143,7 @@ export default function App() {
 	const tabOrder: TabId[] = ['simulate', 'optimize', 'compare']
 
 	return (
-		<div className="app">
+		<div>
 			<LiveStatus loading={w.loading} refreshing={w.refreshing} error={w.error} />
 			<Toaster
 				position={toastsTop ? 'top-center' : 'bottom-right'}
