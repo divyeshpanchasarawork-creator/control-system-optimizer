@@ -22,7 +22,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) var(--gutter);
+  /* Pads to the gutter on narrow screens and optically aligns the brand and
+     nav to the 1180px content column on wide ones, where the sections below
+     are centred plus the same gutter inset. */
+  padding: var(--space-3) max(var(--gutter), calc((100vw - 1180px) / 2 + var(--gutter)));
   background: var(--glass);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -210,6 +213,7 @@
   z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
+  padding: 0 var(--gutter);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: calc(var(--space-6) + var(--space-3));
@@ -1128,6 +1132,9 @@
   .landing-hero__inner {
     grid-template-columns: 1fr;
     gap: var(--space-6);
+    /* The hero has its own gutter at this tier, so the inner's shared-gutter
+       padding would double the inset and break the column with the sections. */
+    padding-inline: 0;
   }
 
   .landing-hero__subtitle {
