@@ -1,5 +1,5 @@
 import { Check, Rocket } from 'lucide-react'
-import { Badge, Callout, CheckField, DataTable, Disclosure, Empty, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, SelectField, SettlingBandTable } from '../components/common'
+import { Badge, CheckField, ChartPanel, DataTable, Disclosure, Empty, GainTag, KeyValue, Learn, MetricCard, NumberField, ObjectiveBars, ObjectiveBreakdownTable, Panel, RunButton, SelectField, SettlingBandTable, StaleCallout } from '../components/common'
 import { fmt, fmtGain } from '../components/common'
 import { ConvergenceChart, CostSurfaceHeatmap } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -98,10 +98,9 @@ export function OptimizeTab() {
 	const reportedMetrics = infeasible ? nearMiss?.metrics ?? null : w.optimizerResult?.metrics ?? null
 	// a rejected gain must never be shown as "the best gain", so the two cases
 	// are labelled separately instead of sharing one formatter
-	const bestGainLabel = (result?.bestGain ?? []).map((g) => fmtGain(g)).join(', ')
-	const heroGainLabel = result?.feasible
-		? bestGainLabel
-		: (nearMiss?.gain.map((g) => fmtGain(g)).join(', ') ?? bestGainLabel)
+	const heroGain = result?.feasible
+		? (result?.bestGain ?? [])
+		: (nearMiss?.gain ?? result?.bestGain ?? [])
 
 	return (
 		<div className="stack">
@@ -236,21 +235,15 @@ export function OptimizeTab() {
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
 
 			<div className="btn-row btn-row--end">
-				<button className="btn primary btn--block" onClick={() => void w.runOptimization()} disabled={w.loading !== null}>
-					<Rocket size={14} strokeWidth={2} /> {w.loading ?? (w.error ? 'Retry optimization' : 'Run optimization')}
-				</button>
+				<RunButton block icon={<Rocket size={14} strokeWidth={2} />} pending={w.loading !== null}
+					pendingLabel={w.loading ?? 'Running…'} label={w.error ? 'Retry optimization' : 'Run optimization'}
+					onClick={() => void w.runOptimization()} />
 			</div>
 
 			{w.optimizerResult ? (
 				<div className="stack">
 					{w.staleContext && (
-						<Callout tone="warn">
-							<span>
-								This result was optimized against an earlier model
-								{w.staleContext.length === 1 ? `: ${w.staleContext[0]}.` : `. Changed: ${w.staleContext.join(', ')}.`}
-							</span>
-							<button className="btn btn--sm" onClick={() => void w.runOptimization()}>Re-run optimization</button>
-						</Callout>
+						<StaleCallout context={w.staleContext} onAction={() => void w.runOptimization()} />
 					)}
 
 					<div className="result-hero">
@@ -260,7 +253,7 @@ export function OptimizeTab() {
 						</span>
 						<span className="result-hero__stat">
 							<span className="result-hero__label">{result?.feasible ? 'Best gain K' : 'Closest gain K'}</span>
-							<span className="result-hero__value">[{heroGainLabel}]</span>
+							<span className="result-hero__value"><GainTag gain={heroGain} /></span>
 						</span>
 						<span className="result-hero__meta">
 							<Badge tone={result?.feasible ? 'good' : 'bad'}>{result?.feasible ? 'feasible' : 'infeasible'}</Badge>
@@ -307,7 +300,7 @@ export function OptimizeTab() {
 							right={<Learn title="Why the search failed"><p>Every candidate costs +∞ once it breaks a limit, so the search ranks them by the worst relative miss instead. The candidate below came nearest, and these are the limits it broke. Relax one of them, or widen the gain range, and rerun.</p></Learn>}
 						>
 							<p className="faint reset-top">
-								Nearest candidate K = [{nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]
+								Nearest candidate <GainTag gain={nearMiss.gain} label="K" />
 								{nearMiss.metrics && (
 									<>
 										{' '}· IAE {fmt(nearMiss.metrics.iae, 4)} · control energy{' '}
@@ -353,7 +346,7 @@ export function OptimizeTab() {
 						</div>
 					)}
 
-					<Panel title="Optimization Result" className={busy ? 'chart-busy' : ''} right={<Learn title="How the convergence works"><p>{LEARNING.convergence}</p></Learn>}>
+					<ChartPanel title="Optimization Result" busy={busy} right={<Learn title="How the convergence works"><p>{LEARNING.convergence}</p></Learn>}>
 						<div className="grid grid--3">
 							<MetricCard
 								hint={result?.feasible
@@ -361,9 +354,9 @@ export function OptimizeTab() {
 									: 'No gain inside the search box satisfied every enforced limit, so there is no best gain. The closest candidate is reported alongside the limits it missed.'}
 								label="Best gain"
 								value={result?.feasible
-									? `[${bestGainLabel}]`
+									? <GainTag gain={result?.bestGain ?? []} />
 									: nearMiss
-										? `No feasible gain · closest [${nearMiss.gain.map((g) => fmtGain(g)).join(', ')}]`
+										? <>No feasible gain · closest <GainTag gain={nearMiss.gain} /></>
 										: 'No feasible gain in range'}/>
 							<MetricCard hint="Value of the weighted objective J at the best gain. Lower is better." label="Best cost (J)" value={w.optimizerResult.bestCost === null ? 'Not feasible' : fmt(w.optimizerResult.bestCost, 4)} />
 							<MetricCard hint="Simulations run during the search. Grid: resolution². DE: population × generations." label="Evaluations" value={fmt(w.optimizerResult.evaluations, 0)} sub={`${fmt(w.optimizerResult.elapsedMillis, 0)} ms`} />
@@ -383,19 +376,19 @@ export function OptimizeTab() {
 								Seeded search explores the box by sampling: this K is the best of that sample, not the box-wide optimum. Run grid search at the same bounds and compare its best J before calling either result optimal.
 							</p>
 						)}
-					</Panel>
+					</ChartPanel>
 
 					{breakdown && (
-					<Panel title="Why this objective value?" className={busy ? 'chart-busy' : ''} right={<Learn title="How the breakdown works"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
+					<ChartPanel title="Why this objective value?" busy={busy} right={<Learn title="How the breakdown works"><p>Each row shows the metric that feeds the objective: its raw value, the fixed normalization scale derived from the problem, the normalized ratio (1.0 = metric equals that scale), the weight, the weighted contribution and its share of J.</p></Learn>}>
 						<ObjectiveBreakdownTable
 							breakdown={breakdown}
 							notSettled={w.optimizerResult?.metrics?.settlingTime === null}
 							baselineNote="terms are raw (unnormalized) only when fixed scales are unavailable"
 						/>
-					</Panel>
+					</ChartPanel>
 					)}
 
-					<Panel title="Settling time across bands" className={busy ? 'chart-busy' : ''}>
+					<ChartPanel title="Settling time across bands" busy={busy}>
 						<p className="faint reset-top">
 							The reported gain measured against each settling band. A "Not reached" row means the response never
 							stays inside that band, which is what a residual steady-state offset looks like.
@@ -404,10 +397,10 @@ export function OptimizeTab() {
 							metrics={reportedMetrics}
 							empty={infeasible ? 'No nearest candidate to measure bands on.' : 'No settling bands to report for this result.'}
 						/>
-					</Panel>
+					</ChartPanel>
 
 					{constraintReport && hasActiveConstraints && (
-						<Panel title="Constraint report" className={busy ? 'chart-busy' : ''}>
+						<ChartPanel title="Constraint report" busy={busy}>
 							<DataTable columns={[{ header: 'Constraint' }, { header: 'Achieved' }, { header: 'Limit' }, { header: 'Status' }]}>
 								<tbody>
 									{constraintReport.map((c) => (
@@ -420,15 +413,15 @@ export function OptimizeTab() {
 									))}
 								</tbody>
 							</DataTable>
-						</Panel>
+						</ChartPanel>
 					)}
 
-					<Panel title="Convergence" className={busy ? 'chart-busy' : ''}>
+					<ChartPanel title="Convergence" busy={busy}>
 						<ConvergenceChart points={w.optimizerResult.convergence} optimizerType={w.optimizerResult.optimizerType} />
-					</Panel>
+					</ChartPanel>
 
 					{runType === 'GRID_SEARCH' && hasSurface && (
-						<Panel title="Interactive cost surface · Kp × Kd" className={busy ? 'chart-busy' : ''}
+						<ChartPanel title="Interactive cost surface · Kp × Kd" busy={busy}
 							right={<Learn title="How the heatmap works"><p>Dark blue is low J (good), light/null is infeasible. Hover a cell to read its IAE and control energy; the ★ marks the grid optimum and ● marks the manual/current gain. The log scale also puts a level edge at J = 1, the scale the breakdown's 1.0 means.</p></Learn>}>
 							<CostSurfaceHeatmap
 								surface={surf as (number | null)[][]}
@@ -439,7 +432,7 @@ export function OptimizeTab() {
 								gainBounds={{ lower: [...runLower], upper: [...runUpper] }}
 								resolution={[runGridResolution, runGridResolution]}
 							/>
-						</Panel>
+						</ChartPanel>
 					)}
 				</div>
 			) : (

@@ -84,6 +84,114 @@ export function fmt(n: number | null | undefined, digits = 3, fallback = FALLBAC
 /** Gains read with up to three decimals, matching the metric precision. */
 export const fmtGain = (g: number) => fmt(g, 3)
 
+/** The metric readings both tabs compare. `settling` maps to `settlingTime`. */
+export type MetricKey = 'finalError' | 'iae' | 'ise' | 'maxAbsError' | 'overshoot' | 'settling' | 'controlEffort' | 'maxControl'
+
+/**
+ * Single declaration of the reading groups Simulate, Optimize and Compare all
+ * render. `unit` is the one stated in the input fields, so a reading never
+ * surfaces with units in one tab and bare in another.
+ */
+export const METRIC_GROUPS: { label: string; keys: { key: MetricKey; name: string; unit?: string; lowerBetter: boolean }[] }[] = [
+	{
+		label: 'Tracking quality',
+		keys: [
+			{ key: 'finalError', name: 'Final error', unit: 'm', lowerBetter: true },
+			{ key: 'iae', name: 'IAE', unit: 'm·s', lowerBetter: true },
+			{ key: 'ise', name: 'ISE', unit: 'm²·s', lowerBetter: true },
+		],
+	},
+	{
+		label: 'Transient response',
+		keys: [
+			{ key: 'maxAbsError', name: 'Max abs error', unit: 'm', lowerBetter: true },
+			{ key: 'overshoot', name: 'Overshoot', unit: '%', lowerBetter: true },
+			{ key: 'settling', name: 'Settling time', unit: 's', lowerBetter: true },
+		],
+	},
+	{
+		label: 'Control signal',
+		keys: [
+			{ key: 'controlEffort', name: 'Control energy', unit: 'N²·s', lowerBetter: true },
+			{ key: 'maxControl', name: 'Peak force', unit: 'N', lowerBetter: true },
+		],
+	},
+]
+
+/** Tone for a reading that expresses how far a metric overshoots the reference. */
+export function metricGood(value: number | null | undefined): 'good' | 'bad' | 'neutral' {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return 'neutral'
+	// overshoot on a step input and the biggest excursion read against the
+	// reference; anything past a fifth of it deserves the yellow flag
+	return value > 20 ? 'bad' : 'good'
+}
+
+/**
+ * The panel wrapper used around every chart. `busy` turns the panel's
+ * surface into the chart-busy treatment while a run is in flight, so the
+ * three tabs share one idiom instead of each restating the class.
+ */
+export function ChartPanel({ title, right, busy = false, children }: {
+	title?: ReactNode
+	right?: ReactNode
+	busy?: boolean
+	children: ReactNode
+}) {
+	return (
+		<Panel title={title} right={right} className={busy ? 'chart-busy' : ''}>
+			{children}
+		</Panel>
+	)
+}
+
+/** The primary run/compare action shared by Optimize and Compare. */
+export function RunButton({ label, pendingLabel, pending = false, disabled = false, block = false, icon, onClick }: {
+	label: ReactNode
+	pendingLabel?: ReactNode
+	pending?: boolean
+	disabled?: boolean
+	block?: boolean
+	icon?: ReactNode
+	onClick: () => void
+}) {
+	return (
+		<button type="button" className={`btn primary${block ? ' btn--block' : ''}`} onClick={onClick} disabled={disabled || pending}>
+			{icon}{pending ? (pendingLabel ?? 'Working…') : label}
+		</button>
+	)
+}
+
+/**
+ * A gain vector printed the same way everywhere: mono, bracketed, up to three
+ * decimals. `label` prefixes the reading (e.g. "Manual K"), never formatted
+ * with momentum as part of the value.
+ */
+export function GainTag({ gain, label }: { gain: (number | null | undefined)[]; label?: ReactNode }) {
+	return (
+		<span className="mono">
+			{label !== undefined && <>{label} = </>}[{gain.map((g) => (g === null || g === undefined ? '?' : fmtGain(g))).join(', ')}]
+		</span>
+	)
+}
+
+/** Warns that a result was computed for an earlier model and offers the rerun. */
+export function StaleCallout({ context, onAction, children }: {
+	context: string[]
+	onAction: () => void
+	children?: ReactNode
+}) {
+	return (
+		<Callout tone="warn">
+			<span>
+				This result was optimized against an earlier model
+				{context.length === 1 ? `: ${context[0]}.` : `. Changed: ${context.join(', ')}.`}
+			</span>
+			{children}
+			<button type="button" className="btn btn--sm" onClick={onAction}>Re-run optimization</button>
+		</Callout>
+	)
+}
+
 /**
  * A titled block of content. The title is an `h2` so the document outline
  * runs h1 (tab title, in the app header) -> h2 (panel) with no skipped level.
@@ -343,7 +451,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 	)
 }
 
-export function NumberField({ label, value, onChange, min, max, step, unit, hint, disabled }: {
+export function NumberField({ label, value, onChange, min, max, step, unit, hint, gain, disabled }: {
 	label: string
 	value: number
 	onChange: (v: number) => void
@@ -352,40 +460,17 @@ export function NumberField({ label, value, onChange, min, max, step, unit, hint
 	step?: number
 	unit?: string
 	hint?: string
+	gain?: boolean
 	disabled?: boolean
 }) {
 	return (
-		<label className={`field ${disabled ? 'is-disabled' : ''}`}>
+		<label className={`field ${gain ? 'field--gain' : ''} ${disabled ? 'is-disabled' : ''}`.trim()}>
 			<span className="field__label">
 				{label}
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={step} onChange={onChange} ariaLabel={label} disabled={disabled} />
-				{unit !== undefined && <span className="field__unit">{unit}</span>}
-			</span>
-		</label>
-	)
-}
-
-export function GainField({ name, value, onChange, min, max, unit, hint, disabled }: {
-	name: string
-	value: number
-	onChange: (v: number) => void
-	min?: number
-	max?: number
-	unit?: string
-	hint?: string
-	disabled?: boolean
-}) {
-	return (
-		<label className={`field field--gain ${disabled ? 'is-disabled' : ''}`}>
-			<span className="field__label">
-				{name}
-				{hint !== undefined && <Info text={hint} />}
-			</span>
-			<span className="field__control">
-				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={1} onChange={onChange} ariaLabel={name} disabled={disabled} />
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={gain ? 1 : step} onChange={onChange} ariaLabel={label} disabled={disabled} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>
@@ -431,9 +516,10 @@ export function CheckField({ label, checked, onChange, hint, disabled }: {
 	)
 }
 
-export function RadioChip({ label, value, active, onChange, hint, disabled }: {
+export function RadioChip({ label, value, name, active, onChange, hint, disabled }: {
 	label: string
 	value: string
+	name: string
 	active: boolean
 	onChange: (v: string) => void
 	hint?: string
@@ -441,7 +527,7 @@ export function RadioChip({ label, value, active, onChange, hint, disabled }: {
 }) {
 	return (
 		<label className={`radio-chip ${active ? 'active' : ''} ${disabled ? 'is-disabled' : ''}`}>
-			<input type="radio" name={value} checked={active} disabled={disabled} onChange={() => onChange(value)} />
+			<input type="radio" name={name} checked={active} disabled={disabled} onChange={() => onChange(value)} />
 			<span>{label}</span>
 			{hint !== undefined && <Info text={hint} />}
 		</label>
@@ -470,6 +556,11 @@ export function Delta({ value, pct, tone }: { value: number; pct: boolean; tone?
 	// both branches go through fmt so thousands group and both follow the
 	// same "not available" contract
 	return <span className={`delta delta--${resolved}`}>{pct ? `${sign}${fmt(Math.abs(value), 1)}%` : `${sign}${fmt(v, 3)}`}</span>
+}
+
+/** Tone for a relative change in a lower-better metric: improvement is good. */
+export function deltaTone(rel: number): 'good' | 'bad' | 'neutral' {
+	return rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
 }
 
 export function ObjectiveBars({ weights, onChange }: {

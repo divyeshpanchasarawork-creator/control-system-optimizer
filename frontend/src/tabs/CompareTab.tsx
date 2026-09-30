@@ -1,50 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GitCompareArrows } from 'lucide-react'
 
-import { Badge, BusyNote, Callout, ChartCell, DataTable, Delta, Empty, Learn, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta } from '../components/common'
+import { Badge, BusyNote, Callout, ChartCell, ChartPanel, DataTable, Delta, deltaTone, Empty, GainTag, Learn, METRIC_GROUPS, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta, RunButton, StaleCallout } from '../components/common'
+import type { MetricKey } from '../components/common'
 import { OverlayChart } from '../components/charts'
 import type { ChartColor } from '../components/charts/palette'
-import { fmt, fmtGain } from '../components/common'
+import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
 import type { MetricsResponse, SimulationResponse } from '../api/types'
 
-const METRIC_GROUPS: { label: string; keys: { key: keyof MetricsResponse | 'settling'; name: string; unit?: string; lowerBetter: boolean }[] }[] = [
-	{
-		label: 'Tracking quality',
-		keys: [
-			{ key: 'finalError', name: 'Final error', lowerBetter: true },
-			{ key: 'iae', name: 'IAE', lowerBetter: true },
-			{ key: 'ise', name: 'ISE', lowerBetter: true },
-		],
-	},
-	{
-		label: 'Transient response',
-		keys: [
-			{ key: 'maxAbsError', name: 'Max abs error', lowerBetter: true },
-			{ key: 'overshoot', name: 'Overshoot', unit: '%', lowerBetter: true },
-			{ key: 'settling', name: 'Settling time', unit: 's', lowerBetter: true },
-		],
-	},
-	{
-		label: 'Control signal',
-		keys: [
-			{ key: 'controlEffort', name: 'Control energy', lowerBetter: true },
-			{ key: 'maxControl', name: 'Peak force', lowerBetter: true },
-		],
-	},
-]
+const METRIC_UNIT: Partial<Record<MetricKey, string>> = Object.fromEntries(
+	METRIC_GROUPS.flatMap((g) => g.keys.map((k) => [k.key, k.unit] as const)).filter(([, u]) => u !== undefined),
+)
 
-function metricValue(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[number]['keys'][number]['key']): number | null {
+function metricValue(m: MetricsResponse | null, key: MetricKey): number | null {
 	if (!m) return null
 	if (key === 'settling') return m.settlingTime
 	return m[key] as number
 }
 
-function displayMetric(m: MetricsResponse | null, key: (typeof METRIC_GROUPS)[number]['keys'][number]['key'], unit?: string): string {
+function displayMetric(m: MetricsResponse | null, key: MetricKey): string {
 	const v = metricValue(m, key)
 	if (v === null || !Number.isFinite(v)) return key === 'settling' ? 'Not reached' : 'n/a'
 	const digits = key === 'iae' || key === 'ise' || key === 'controlEffort' ? 4 : 3
-	return `${fmt(v, digits)}${unit ?? ''}`
+	return `${fmt(v, digits)}${METRIC_UNIT[key] ?? ''}`
 }
 
 function allMetricKeys() {
@@ -178,10 +157,10 @@ export function CompareTab() {
 					<span className="faint">Both runs integrate the same plant from Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N·s/m, k = {fmt(w.springConstant)} N/m.</span>
 				</div>
 				<div className="row row--between">
-					<span className="mono faint">Manual K = [{fmtGain(w.manualGain[0])}, {fmtGain(w.manualGain[1])}]{w.optimizedGain ? `  ·  Optimized K = [${fmtGain(w.optimizedGain[0])}, ${fmtGain(w.optimizedGain[1])}]` : ''}</span>
-					<button className="btn primary" onClick={() => void runBoth()} disabled={!ready || pending}>
-						<GitCompareArrows size={14} strokeWidth={2} />{!ready ? 'Run an optimization first' : pending ? 'Comparing…' : ran ? 'Re-run comparison' : 'Compare gains'}
-					</button>
+					<span className="faint"><GainTag gain={w.manualGain} label="Manual K" />{w.optimizedGain ? <>{'  ·  '}<GainTag gain={w.optimizedGain} label="Optimized K" /></> : ''}</span>
+					<RunButton icon={<GitCompareArrows size={14} strokeWidth={2} />} disabled={!ready} pending={pending}
+						pendingLabel="Comparing…" label={!ready ? 'Run an optimization first' : ran ? 'Re-run comparison' : 'Compare gains'}
+						onClick={() => void runBoth()} />
 				</div>
 				{pending && (
 					<div className="row mt-3">
@@ -195,15 +174,10 @@ export function CompareTab() {
 				)}
 				{ready && !pending && ran && (w.staleContext ? (
 					<div className="mt-3">
-						<Callout tone="warn">
-							<span>
-								This result was optimized against an earlier model
-								{w.staleContext.length === 1 ? `: ${w.staleContext[0]}.` : `. Changed: ${w.staleContext.join(', ')}.`}{' '}
-								The comparison below still re-simulates both gains on the current model, but the
-								breakdown and "why" describe the run it was launched with.
-							</span>
-							<button type="button" className="btn btn--sm" onClick={() => { window.location.hash = '#/lab/optimize' }}>Re-run optimization</button>
-						</Callout>
+						<StaleCallout context={w.staleContext} onAction={() => { window.location.hash = '#/lab/optimize' }}>
+							The comparison below still re-simulates both gains on the current model, but the breakdown
+							and "why" describe the run it was launched with.
+						</StaleCallout>
 					</div>
 				) : (
 					<div className="row mt-3">
@@ -215,7 +189,7 @@ export function CompareTab() {
 			<div className="grid grid--split">
 				<div className="stack">
 					{(manualSim || optSim) && (
-						<Panel title="Per-metric comparison" className={pending ? 'chart-busy' : ''}>
+						<ChartPanel title="Per-metric comparison" busy={pending}>
 							<DataTable columns={[{ header: 'Metric' }, { header: 'Manual' }, { header: 'Optimized' }, { header: 'Δ' }]}>
 								<tbody>
 										{METRIC_GROUPS.map((g) => (
@@ -223,18 +197,18 @@ export function CompareTab() {
 										))}
 									</tbody>
 							</DataTable>
-						</Panel>
+						</ChartPanel>
 					)}
 
 					{!manualSim && !optSim && (
 						<Empty>The comparison starts on its own as soon as an optimization produces a gain.</Empty>
 					)}
 
-					<Panel title="Trajectory overlay" className={pending ? 'chart-busy' : ''}>
+					<ChartPanel title="Trajectory overlay" busy={pending}>
 						{(manualSim || optSim)
 							? <ChartGrid manual={manualSim} optimized={optSim} />
 							: <Empty>Both trajectories appear here once the comparison runs.</Empty>}
-					</Panel>
+					</ChartPanel>
 				</div>
 
 				<div className="stack">
@@ -262,14 +236,13 @@ export function CompareTab() {
 												const optimized = metricValue(optMetrics, k.key)
 												const rel = manual === null || optimized === null ? null : relativeDelta(manual, optimized)
 												if (rel === null) return null
-												const tone = rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'
 												return (
 													<MetricCard
 																key={k.key}
 																label={k.name}
-																sub={`manual ${displayMetric(manualMetrics, k.key, k.unit)} → opt ${displayMetric(optMetrics, k.key, k.unit)}`}
-																value={<Delta value={rel} pct tone={tone} />}
-																tone={tone}/>
+																sub={`manual ${displayMetric(manualMetrics, k.key)} → opt ${displayMetric(optMetrics, k.key)}`}
+																value={<Delta value={rel} pct tone={deltaTone(rel)} />}
+																tone={deltaTone(rel)}/>
 												)
 											})}
 										</div>
@@ -318,11 +291,11 @@ function GroupRow({ group, manual, optimized }: {
 				return (
 					<tr key={k.name}>
 						<td>{k.name}</td>
-						<td className="mono">{displayMetric(manual, k.key, k.unit)}</td>
-						<td className="mono">{displayMetric(optimized, k.key, k.unit)}</td>
+						<td className="mono">{displayMetric(manual, k.key)}</td>
+						<td className="mono">{displayMetric(optimized, k.key)}</td>
 						<td>
 							{rel === null ? <span className="faint">n/a</span> : (
-								<Delta value={rel} pct tone={rel > 0 ? 'bad' : rel < 0 ? 'good' : 'neutral'} />
+								<Delta value={rel} pct tone={deltaTone(rel)} />
 							)}
 						</td>
 					</tr>

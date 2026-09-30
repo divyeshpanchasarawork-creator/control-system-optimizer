@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Badge, BusyNote, CheckField, Empty, GainField, Learn, MetricCard, NumberField, Panel, RadioChip, SettlingBandTable } from '../components/common'
-import { fmt, fmtGain } from '../components/common'
+import { Badge, BusyNote, ChartPanel, CheckField, Empty, GainTag, Learn, METRIC_GROUPS, MetricCard, metricGood, NumberField, Panel, RadioChip, SettlingBandTable } from '../components/common'
+import { fmt } from '../components/common'
+import type { MetricKey } from '../components/common'
 import { ErrorChart, PoleZeroChart, PositionChart, TrajectoryChart } from '../components/charts'
 import { useWorkspace } from '../state/WorkspaceContext'
 import { poleSummary } from '../lib/poles'
 import type { SimulationResponse } from '../api/types'
-
-function metricTone(m: SimulationResponse['metrics'], key: 'overshoot' | 'maxAbsError') {
-	const v = m[key]
-	if (typeof v !== 'number' || !Number.isFinite(v)) return 'neutral'
-	return v > 20 ? 'bad' : 'good'
-}
 
 const LEARNING = {
 	sim: 'The simulated spring-damper follows ẋ = Ax + Bu, integrated with a fixed-step Runge-Kutta (RK4) solver. The plots separate the states, the tracking error and the actuator command: position and velocity over time with the dashed reference they track, the error e(t) = r₁ − x₁, and control u(t) showing how hard the controller is working. The control law u = −K(x − r) is applied at every step; with feedforward the law becomes u = −K(x − r) + k·r₁ and x_ss = r₁ exactly. When an actuator saturation is set, u is hard-clipped to ±saturation.',
@@ -132,13 +127,13 @@ export function SimulateTab() {
 
 			<Panel title="Controller · state feedback">
 					<div className="grid grid--2">
-						<GainField name="Kp" unit="position" hint="Position (proportional) gain. u = −Kp·(x₁ − r₁) − Kd·(x₂ − ṙ₂). More Kp gives a stiffer, faster response but can cause overshoot or instability."
+						<NumberField gain label="Kp" unit="position" hint="Position (proportional) gain. u = −Kp·(x₁ − r₁) − Kd·(x₂ − ṙ₂). More Kp gives a stiffer, faster response but can cause overshoot or instability."
 							value={gain[0]} min={-50} max={100}
 							onChange={(v) => {
 								if (w.useOptimized && w.optimizedGain) w.update({ optimizedGain: [v, w.optimizedGain[1]] })
 								else w.update({ manualGain: [v, w.manualGain[1]] })
 							}} />
-						<GainField name="Kd" unit="velocity" hint="Velocity (derivative) gain, acts like extra damping. Raising it calms oscillation."
+						<NumberField gain label="Kd" unit="velocity" hint="Velocity (derivative) gain, acts like extra damping. Raising it calms oscillation."
 							value={gain[1]} min={-50} max={100}
 							onChange={(v) => {
 								if (w.useOptimized && w.optimizedGain) w.update({ optimizedGain: [w.optimizedGain[0], v] })
@@ -191,12 +186,12 @@ export function SimulateTab() {
 				</Panel>
 
 			<div className="grid grid--wide">
-				<Panel title="Position x₁(t)" className={busy ? 'chart-busy' : ''} right={w.simulation ? (
+				<ChartPanel title="Position x₁(t)" busy={busy} right={w.simulation ? (
 					<button type="button" className="btn btn--sm" onClick={() => setPositionFocus((f) => !f)}>Focus on reference</button>
 				) : undefined}>
 					{w.simulation ? <PositionChart response={w.simulation} band={w.settlingBand} xSS={xSS} focused={positionFocus} /> : <Empty>No simulation yet</Empty>}
-				</Panel>
-				<Panel title="Closed-Loop Poles" className={busy ? 'chart-busy' : ''} right={<Learn title="How the pole map works"><p>{LEARNING.stability}</p></Learn>}>
+				</ChartPanel>
+				<ChartPanel title="Closed-Loop Poles" busy={busy} right={<Learn title="How the pole map works"><p>{LEARNING.stability}</p></Learn>}>
 					{w.stability ? (
 						<>
 							<PoleZeroChart eigenvalues={eigenvalues ?? []} />
@@ -213,22 +208,22 @@ export function SimulateTab() {
 					) : (
 						<Empty>Running stability analysis…</Empty>
 					)}
-				</Panel>
+				</ChartPanel>
 			</div>
 
 			<div className="grid">
-				<Panel title="Error e(t)" className={busy ? 'chart-busy' : ''} right={<Learn title="How the error band works"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e first stays inside it and never leaves again. If the trace exits the band at any point after that, settling is counted from its last exit.</p></Learn>}>
+				<ChartPanel title="Error e(t)" busy={busy} right={<Learn title="How the error band works"><p>e = r₁ − x₁ (position error only, matching the metrics). The shaded stripe is the {w.settlingBand}% settling band: settling time is when e first stays inside it and never leaves again. If the trace exits the band at any point after that, settling is counted from its last exit.</p></Learn>}>
 					{w.simulation ? <ErrorChart response={w.simulation} band={w.settlingBand} /> : <Empty>No simulation yet</Empty>}
-				</Panel>
+				</ChartPanel>
 			</div>
 
 			<div className="grid grid--wide">
-				<Panel title="Velocity x₂(t)" className={busy ? 'chart-busy' : ''}>
+				<ChartPanel title="Velocity x₂(t)" busy={busy}>
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="velocity" /> : <Empty>No simulation yet</Empty>}
-				</Panel>
-				<Panel title="Control u(t)" className={busy ? 'chart-busy' : ''}>
+				</ChartPanel>
+				<ChartPanel title="Control u(t)" busy={busy}>
 					{w.simulation ? <TrajectoryChart response={w.simulation} kind="control" /> : <Empty>No simulation yet</Empty>}
-				</Panel>
+				</ChartPanel>
 			</div>
 
 			{poleInfo && (
@@ -241,35 +236,25 @@ export function SimulateTab() {
 				</Panel>
 			)}
 
-			<Panel title="Metrics" className={busy ? 'chart-busy' : ''} right={<span className="mono faint">{busy
-				? `K = [${fmtGain(gain[0])}, ${fmtGain(gain[1])}] · recomputing…`
+			<ChartPanel title="Metrics" busy={busy} right={<span className="mono faint">{busy
+				? <><GainTag gain={gain} /> · recomputing…</>
 				: w.simGain
-					? `K = [${fmtGain(w.simGain[0])}, ${fmtGain(w.simGain[1])}]`
-					: `K = [${fmtGain(gain[0])}, ${fmtGain(gain[1])}]`}</span>}>
+					? <GainTag gain={w.simGain} />
+					: <GainTag gain={gain} />}</span>}>
 				{metrics ? (
 					<>
-						<div className="metric-group">
-							<p className="metric-group__label">Tracking quality</p>
-							<div className="grid grid--3">
-								<MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
-								<MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
-								<MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
+						{METRIC_GROUPS.slice(0, 2).map((group) => (
+							<div className="metric-group" key={group.label}>
+								<p className="metric-group__label">{group.label}</p>
+								<div className="grid grid--3">
+									{group.keys.map((k) => <SimMetricCard key={k.key} metricKey={k.key} metrics={metrics} settlingBand={settlingBand} />)}
+								</div>
 							</div>
-						</div>
+						))}
 						<div className="metric-group">
-							<p className="metric-group__label">Transient response</p>
+							<p className="metric-group__label">{METRIC_GROUPS[2].label}</p>
 							<div className="grid grid--3">
-								<MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricTone(metrics, 'maxAbsError')} />
-								<MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricTone(metrics, 'overshoot')} />
-								<MetricCard hint={`Settling time. When the response stays within the ${settlingBand}% band and never leaves it. "Not reached" means the response never settles within the horizon.`}
-									label="Settling time" value={metrics.settlingTime === null ? 'Not reached' : `${fmt(metrics.settlingTime)} s`} sub={`${settlingBand}% band`}/>
-							</div>
-						</div>
-						<div className="metric-group">
-							<p className="metric-group__label">Control signal</p>
-							<div className="grid grid--3">
-								<MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
-								<MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
+								{METRIC_GROUPS[2].keys.map((k) => <SimMetricCard key={k.key} metricKey={k.key} metrics={metrics} settlingBand={settlingBand} />)}
 								<MetricCard hint="Hard limit on |u(t)|. 0 means unlimited." label="Saturation" value={w.saturation > 0 ? `±${fmt(w.saturation, 2)} N` : 'Unlimited'} sub="u clamped" />
 							</div>
 						</div>
@@ -277,7 +262,7 @@ export function SimulateTab() {
 				) : (
 					<Empty>Run a simulation to see metrics.</Empty>
 				)}
-			</Panel>
+			</ChartPanel>
 
 			<Panel title="Behavior at a glance">
 				<div className="badge-row">
@@ -309,7 +294,7 @@ export function SimulateTab() {
 				<p className="faint reset-top">Settling time is measured against a tolerance band around the reference. Raise it for a more forgiving definition.</p>
 				<div className="radio-list">
 					{SETTLING_OPTIONS.map((o) => (
-						<RadioChip key={o.value} label={o.label} value={o.value} active={String(settlingBand) === o.value}
+						<RadioChip key={o.value} name="settling-band" label={o.label} value={o.value} active={String(settlingBand) === o.value}
 							onChange={(v) => w.update({ settlingBand: parseInt(v, 10) })} />
 					))}
 				</div>
@@ -335,3 +320,35 @@ export function SimulateTab() {
 }
 
 export default SimulateTab
+
+/**
+ * One MetricCard in the Simulate metrics grid. The card content diverges per
+ * metric (unit, sub-line, hint, tone), but the labels, order and units come
+ * from the shared METRIC_GROUPS declaration so the tab cannot drift from the
+ * comparison table again.
+ */
+function SimMetricCard({ metricKey, metrics, settlingBand }: {
+	metricKey: MetricKey
+	metrics: SimulationResponse['metrics']
+	settlingBand: number
+}) {
+	switch (metricKey) {
+		case 'finalError':
+			return <MetricCard hint="MEASURED |r₁ − x₁| at the last sample, distinct from the analytic e_ss shown in the steady-state panel below." label="Final error" value={fmt(metrics.finalError)} tone="neutral" />
+		case 'iae':
+			return <MetricCard hint={LEARNING.metrics} label="IAE" value={fmt(metrics.iae, 4)} sub="∫|r₁ − x₁| dt" />
+		case 'ise':
+			return <MetricCard hint={LEARNING.metrics} label="ISE" value={fmt(metrics.ise, 4)} sub="∫(r₁ − x₁)² dt" />
+		case 'maxAbsError':
+			return <MetricCard hint={LEARNING.metrics} label="Max abs error" value={fmt(metrics.maxAbsError, 3)} sub="max |r₁ − x₁|" tone={metricGood(metrics.maxAbsError)} />
+		case 'overshoot':
+			return <MetricCard hint="Overshoot. How far the response exceeds the reference, as a percentage of the step." label="Overshoot" value={`${fmt(metrics.overshoot)}%`} tone={metricGood(metrics.overshoot)} />
+		case 'settling':
+			return <MetricCard hint={`Settling time. When the response stays within the ${settlingBand}% band and never leaves it. "Not reached" means the response never settles within the horizon.`}
+				label="Settling time" value={metrics.settlingTime === null ? 'Not reached' : `${fmt(metrics.settlingTime)} s`} sub={`${settlingBand}% band`} />
+		case 'controlEffort':
+			return <MetricCard hint={LEARNING.metrics} label="Control energy" value={fmt(metrics.controlEffort, 4)} sub="U = ∫u² dt · N²·s" />
+		case 'maxControl':
+			return <MetricCard hint="Peak magnitude of the actuator command, the practical force the controller demands." label="Peak force" value={fmt(metrics.maxControl)} />
+	}
+}
