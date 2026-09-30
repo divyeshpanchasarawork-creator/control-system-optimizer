@@ -278,6 +278,40 @@
   padding: 0;
 }
 
+/* Desktop hero fills the fold: both columns stretch to the viewport height,
+   the copy group stays centred and the CTAs anchor near the bottom, and the
+   glass canvas stands full-height with the fixed-aspect drawing centred in
+   it. Below 901px the hero keeps its natural stacked height. The dvh line
+   cascades over the vh one where dynamic viewport units exist, so the fold
+   survives mobile URL-chrome getting out of the way. */
+@media (min-width: 901px) {
+  .landing-hero {
+    min-height: calc(100vh - 65px);
+    min-height: calc(100dvh - 65px);
+  }
+
+  .landing-hero__inner {
+    align-items: stretch;
+  }
+
+  .landing-hero__copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .landing-hero__copy .landing-hero__cta-row {
+    margin-top: auto;
+  }
+
+  .landing-hero__figure {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+  }
+}
+
 /* ---------- Sections ---------- */
 .landing-section {
   max-width: 1180px;
@@ -419,6 +453,9 @@
 .lab-sim__figure {
   position: relative;
   margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -554,14 +591,10 @@
 }
 
 /* ---------- Pole mini plot ---------- */
-/* The closed-loop s-plane floats over the physics figure's empty upper-right
-   corner instead of crowding the telemetry row beside the readings. */
+/* The closed-loop s-plane sits as a static, context-aware tile: a bordered
+   rail inside the physics figure (second grid column, divided by the card
+   edge) and a chip at the end of the Tune readout bar. It never floats. */
 .pole-mini {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  z-index: 1;
-  margin: 0;
   padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
@@ -574,6 +607,29 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
   pointer-events: none;
+}
+
+/* Inside the sim figure the chip flattens into a full-height right-hand rail
+   separated from the physics drawing by a hairline instead of a panel gap. */
+.lab-sim__figure .pole-mini {
+  position: static;
+  justify-content: center;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  padding: var(--space-1) var(--space-3);
+}
+
+/* At the end of the Tune readout bar the chip keeps its tile look and is
+   right-aligned in the row rather than handling bar metrics as a divider. */
+.tune__readouts .pole-mini {
+  align-self: center;
+  margin-left: auto;
+  margin-right: var(--space-2);
 }
 
 .pole-mini__caption {
@@ -1214,9 +1270,9 @@
     gap: var(--space-2) var(--space-3);
   }
 
-  /* The readouts become a 3x2 grid and the pole inset drops out of its
-     overlay to a plain row beneath the physics, since the figure is too
-     short to host a floating panel. */
+  /* The readouts become a 3x2 grid and the pole rail drops out of its side
+     column to a plain divider row beneath the physics, since the figure is
+     too narrow to host a two-column rail. */
   .lab-sim__telemetry {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1235,7 +1291,8 @@
     border-bottom: none;
   }
 
-  .pole-mini {
+  .lab-sim__figure .pole-mini {
+    grid-column: 1 / -1;
     position: static;
     flex-direction: row;
     align-items: center;
@@ -1244,6 +1301,7 @@
     padding: var(--space-2) var(--space-3);
     border: none;
     border-top: 1px solid var(--border);
+    border-left: none;
     border-radius: 0;
     background: transparent;
     -webkit-backdrop-filter: none;

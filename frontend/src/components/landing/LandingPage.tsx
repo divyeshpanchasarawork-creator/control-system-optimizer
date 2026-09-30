@@ -249,6 +249,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 				</div>
 				<div className="landing-hero__inner">
 					<motion.div
+						className="landing-hero__copy"
 						initial="hidden"
 						animate="show"
 						variants={heroParent}
