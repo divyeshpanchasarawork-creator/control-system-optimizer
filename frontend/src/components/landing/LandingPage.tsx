@@ -233,8 +233,8 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<span className="landing__brand-name">Control Lab</span>
 				</a>
 				<nav className="landing__nav" aria-label="Landing">
-					<a href="#how">How it works</a>
 					<a href="#simulate">Simulate</a>
+					<a href="#how">How it works</a>
 					<a href="#tune">Tune</a>
 					<a href="#search">Search</a>
 					<button type="button" className="landing__nav-cta" onClick={onEnter}>Open the Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
@@ -285,6 +285,16 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 				</div>
 			</section>
 
+			<section className="landing-section" id="simulate">
+				<div className="landing-section__head">
+					<h2 className="landing-section__title">Simulate the physics</h2>
+					<p className="landing-section__lede">The same spring-damper model rendered three ways. The controller sets the character.</p>
+				</div>
+				<MotionView>
+					<RegimeTraces />
+				</MotionView>
+			</section>
+
 			<section className="landing-section" id="how">
 				<div className="landing-section__head">
 					<h2 className="landing-section__title">From physics to response</h2>
@@ -310,16 +320,6 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 						</ol>
 					</MotionView>
 				</div>
-			</section>
-
-			<section className="landing-section" id="simulate">
-				<div className="landing-section__head">
-					<h2 className="landing-section__title">Simulate the physics</h2>
-					<p className="landing-section__lede">The same spring-damper model rendered three ways. The controller sets the character.</p>
-				</div>
-				<MotionView>
-					<RegimeTraces />
-				</MotionView>
 			</section>
 
 			<section className="landing-section" id="tune">
