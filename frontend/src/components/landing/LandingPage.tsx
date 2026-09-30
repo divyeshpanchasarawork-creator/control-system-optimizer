@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
+import { MotionView } from '../common'
 import { LogoMark } from '../Landing'
 import type { LabParams } from './LandingSim'
 import { presetDamping, searchGains, simulateClosedLoop, stepResponse, zetaOmega } from './LandingSim'
@@ -289,20 +290,22 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">From physics to response</h2>
 					<p className="landing-section__lede">One pipeline: model it, close the loop, then react to what it does.</p>
 				</div>
-				<ol className="steps">
-					{STEPS.map((s, i) => (
-						<Fragment key={s.title}>
-							<li className="step">
-								<span className="step__mark mono">{s.mark}</span>
-								<div>
-									<h3 className="step__title">{s.title}</h3>
-									<p className="step__text">{s.body}</p>
-								</div>
-							</li>
-							{i < STEPS.length - 1 && <li className="step__arrow" aria-hidden>→</li>}
-						</Fragment>
-					))}
-				</ol>
+				<MotionView>
+					<ol className="steps">
+						{STEPS.map((s, i) => (
+							<Fragment key={s.title}>
+								<li className="step">
+									<span className="step__mark mono">{s.mark}</span>
+									<div>
+										<h3 className="step__title">{s.title}</h3>
+										<p className="step__text">{s.body}</p>
+									</div>
+								</li>
+								{i < STEPS.length - 1 && <li className="step__arrow" aria-hidden>→</li>}
+							</Fragment>
+						))}
+					</ol>
+				</MotionView>
 			</section>
 
 			<section className="landing-section" id="simulate">
@@ -310,7 +313,9 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">Simulate the physics</h2>
 					<p className="landing-section__lede">The same spring-damper model rendered three ways. The controller sets the character.</p>
 				</div>
-				<RegimeTraces />
+				<MotionView>
+					<RegimeTraces />
+				</MotionView>
 			</section>
 
 			<section className="landing-section" id="tune">
@@ -318,7 +323,9 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">Tune the feedback gains</h2>
 					<p className="landing-section__lede">Drag <code>Kp</code> and <code>Kd</code>. The trace, the poles and the metrics move together.</p>
 				</div>
-				<TuneSection />
+				<MotionView>
+					<TuneSection />
+				</MotionView>
 			</section>
 
 			<section className="landing-section" id="tradeoffs">
@@ -326,16 +333,20 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">Understand the trade-offs</h2>
 					<p className="landing-section__lede">Fast is not always better. Every gain choice trades one spec against another.</p>
 				</div>
-				<TradeOffs />
-				<ol className="chain">
-					<li>Gain</li>
-					<li>→</li>
-					<li>Poles</li>
-					<li>→</li>
-					<li>Transient</li>
-					<li>→</li>
-					<li>Metrics</li>
-				</ol>
+				<MotionView>
+					<TradeOffs />
+				</MotionView>
+				<MotionView>
+					<ol className="chain">
+						<li>Gain</li>
+						<li>→</li>
+						<li>Poles</li>
+						<li>→</li>
+						<li>Transient</li>
+						<li>→</li>
+						<li>Metrics</li>
+					</ol>
+				</MotionView>
 			</section>
 
 			<section className="landing-section" id="search">
@@ -345,7 +356,9 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 						Every gain pair in the box is simulated and scored, then ranked. The cheapest one wins.
 					</p>
 				</div>
-				<SearchSection />
+				<MotionView>
+					<SearchSection />
+				</MotionView>
 			</section>
 
 			<section className="landing-cta">

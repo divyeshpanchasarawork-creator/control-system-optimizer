@@ -95,11 +95,12 @@
 .landing .btn--primary {
   background: var(--blue);
   color: var(--on-accent);
-  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--blue) 50%, transparent);
+  box-shadow: var(--glow-blue);
 }
 
 .landing .btn--primary:hover {
   background: var(--blue-2);
+  box-shadow: var(--glow-blue);
 }
 
 .landing .btn--ghost {
@@ -233,7 +234,10 @@
 
 .landing-hero__title em {
   font-style: normal;
-  color: var(--blue);
+  background: linear-gradient(100deg, var(--blue), var(--brand-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .landing-hero__subtitle {
@@ -293,6 +297,7 @@
   color: var(--text-2);
   margin-top: var(--space-2);
   font-size: var(--fs-body);
+  max-width: 640px;
 }
 
 .landing-section__lede code,
@@ -317,11 +322,26 @@
 .step {
   flex: 1;
   min-width: 0;
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   box-shadow: var(--shadow);
+}
+
+/* A short brand accent along the top edge ties the four steps together and
+   gives the reveal sequence a fixed spine to land on. */
+.step::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 2px;
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: linear-gradient(90deg, var(--blue), var(--brand-accent));
+  opacity: 0.65;
 }
 
 .step__mark {
@@ -633,6 +653,11 @@
   background: var(--surface);
   padding: var(--space-3);
   box-shadow: var(--shadow);
+  transition: border-color var(--dur);
+}
+
+.regime:hover {
+  border-color: var(--border-strong);
 }
 
 .regime__caption {
@@ -888,14 +913,16 @@
 }
 
 /* Cost levels, cheapest first. The surface is drawn as one path per level so a
-   1,891-cell grid costs seven nodes instead of one per candidate. */
-.search__band--0 { fill: color-mix(in srgb, var(--blue) 82%, transparent); }
-.search__band--1 { fill: color-mix(in srgb, var(--blue) 62%, transparent); }
-.search__band--2 { fill: color-mix(in srgb, var(--blue) 44%, transparent); }
-.search__band--3 { fill: color-mix(in srgb, var(--blue) 30%, transparent); }
-.search__band--4 { fill: color-mix(in srgb, var(--blue) 19%, transparent); }
-.search__band--5 { fill: color-mix(in srgb, var(--blue) 11%, transparent); }
-.search__band--6 { fill: var(--border-strong); }
+   1,891-cell grid costs seven nodes instead of one per candidate. The ramp
+   runs the same blue-to-violet story as the lab heatmap: pale and cheap in the
+   basin, deep and violet as cost climbs. */
+.search__band--0 { fill: color-mix(in srgb, var(--brand-accent) 14%, var(--blue-soft)); }
+.search__band--1 { fill: color-mix(in srgb, var(--brand-accent) 30%, var(--blue-soft)); }
+.search__band--2 { fill: color-mix(in srgb, var(--brand-accent) 48%, var(--blue)); }
+.search__band--3 { fill: color-mix(in srgb, var(--brand-accent) 60%, var(--blue)); }
+.search__band--4 { fill: color-mix(in srgb, var(--brand-accent) 72%, var(--blue)); }
+.search__band--5 { fill: color-mix(in srgb, var(--brand-accent) 86%, var(--blue)); }
+.search__band--6 { fill: var(--brand-accent); }
 
 .search__axis {
   position: absolute;
@@ -932,6 +959,31 @@
   pointer-events: none;
 }
 
+/* A soft radar ring keeps the winning pair easy to find in the violet end of
+   the ramp. Purely decorative and, like every animation here, killed by the
+   global reduced-motion switch. */
+.search__best::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--blue);
+  opacity: 0;
+  animation: best-pulse 2.6s var(--ease) infinite;
+}
+
+@keyframes best-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
 .search__legend {
   display: flex;
   align-items: center;
@@ -964,8 +1016,14 @@
 
 /* ---------- CTA ---------- */
 .landing-cta {
+  position: relative;
   padding: calc(var(--space-8) + var(--space-3)) var(--page-pad) calc(var(--space-8) + var(--space-4));
   text-align: center;
+  background:
+    radial-gradient(820px 400px at 50% -12%, color-mix(in srgb, var(--blue) 22%, transparent), transparent 62%),
+    radial-gradient(680px 360px at 50% 132%, color-mix(in srgb, var(--brand-accent) 26%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--blue) 4%, var(--bg)), var(--bg));
+  border-bottom: 1px solid var(--border);
 }
 
 .landing-cta__title {
