@@ -154,7 +154,7 @@ export function CompareTab() {
 				</p>
 			</Learn>
 
-			<Panel title="Compare both gains">
+			<Panel title="Compare both gains" ariaBusy={pending}>
 				<div className="row">
 					<span className="faint">Both runs integrate the same plant from Simulate tab: m = {fmt(w.mass)} kg, c = {fmt(w.damping)} N·s/m, k = {fmt(w.springConstant)} N/m.</span>
 				</div>

@@ -196,14 +196,15 @@ export function StaleCallout({ context, onAction, children }: {
  * A titled block of content. The title is an `h2` so the document outline
  * runs h1 (tab title, in the app header) -> h2 (panel) with no skipped level.
  */
-export function Panel({ title, right, children, className = '' }: {
+export function Panel({ title, right, children, className = '', ariaBusy }: {
 	title?: ReactNode
 	right?: ReactNode
 	children: ReactNode
 	className?: string
+	ariaBusy?: boolean
 }) {
 	return (
-		<section className={`panel ${className}`.trim()}>
+		<section className={`panel ${className}`.trim()} aria-busy={ariaBusy}>
 			{(title !== undefined || right !== undefined) && (
 				<header className="panel__header">
 					{title !== undefined && <h2 className="panel__title">{title}</h2>}
@@ -369,10 +370,11 @@ export function Info({ text }: { text: string }) {
 
 export function Learn({ title, children }: { title: string; children: ReactNode }) {
 	const [open, setOpen] = useState(false)
+	const bodyId = useId()
 	const reduceMotion = useReducedMotion()
 	return (
 		<div className="learn">
-			<button type="button" className="learn__summary" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+			<button type="button" className="learn__summary" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? bodyId : undefined}>
 				<span className="learn__tag">Learn</span>
 				<span className="learn__title">{title}</span>
 				<span className={`learn__chevron ${open ? 'learn__chevron--open' : ''}`} aria-hidden="true">
@@ -384,6 +386,7 @@ export function Learn({ title, children }: { title: string; children: ReactNode 
 			<AnimatePresence initial={false}>
 				{open && (
 					<motion.div
+						id={bodyId}
 						className="learn__body"
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: 'auto', opacity: 1 }}
@@ -416,6 +419,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 	children: ReactNode
 }) {
 	const [open, setOpen] = useState(defaultOpen)
+	const bodyId = useId()
 	const reduceMotion = useReducedMotion()
 	return (
 		<div className={`disclosure${open ? ' disclosure--open' : ''}`}>
@@ -424,6 +428,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 				className="disclosure__trigger"
 				onClick={() => setOpen((o) => !o)}
 				aria-expanded={open}
+				aria-controls={open ? bodyId : undefined}
 			>
 				<span className="disclosure__label">{label}</span>
 				{count !== undefined && <span className="sr-only"> {count} settings</span>}
@@ -437,6 +442,7 @@ export function Disclosure({ label, summary, count, defaultOpen = false, childre
 			<AnimatePresence initial={false}>
 				{open && (
 					<motion.div
+						id={bodyId}
 						className="disclosure__body"
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: 'auto', opacity: 1 }}
@@ -463,6 +469,7 @@ export function NumberField({ label, value, onChange, min, max, step, unit, hint
 	gain?: boolean
 	disabled?: boolean
 }) {
+	const ariaName = unit ? `${label} (${unit})` : label
 	return (
 		<label className={`field ${gain ? 'field--gain' : ''} ${disabled ? 'is-disabled' : ''}`.trim()}>
 			<span className="field__label">
@@ -470,7 +477,7 @@ export function NumberField({ label, value, onChange, min, max, step, unit, hint
 				{hint !== undefined && <Info text={hint} />}
 			</span>
 			<span className="field__control">
-				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={gain ? 1 : step} onChange={onChange} ariaLabel={label} disabled={disabled} />
+				<BufferedNumberInput value={Number.isFinite(value) ? value : 0} min={min} max={max} step={gain ? 1 : step} onChange={onChange} ariaLabel={ariaName} disabled={disabled} />
 				{unit !== undefined && <span className="field__unit">{unit}</span>}
 			</span>
 		</label>

@@ -292,7 +292,7 @@ export function SimulateTab() {
 
 			<Panel title="Settling-time band">
 				<p className="faint reset-top">Settling time is measured against a tolerance band around the reference. Raise it for a more forgiving definition.</p>
-				<div className="radio-list">
+				<div className="radio-list" role="radiogroup" aria-label="Settling band">
 					{SETTLING_OPTIONS.map((o) => (
 						<RadioChip key={o.value} name="settling-band" label={o.label} value={o.value} active={String(settlingBand) === o.value}
 							onChange={(v) => w.update({ settlingBand: parseInt(v, 10) })} />

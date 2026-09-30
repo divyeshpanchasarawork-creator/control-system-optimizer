@@ -226,7 +226,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<a href="#simulate">Simulate</a>
 					<a href="#tune">Tune</a>
 					<a href="#search">Search</a>
-					<button className="landing__nav-cta" onClick={onEnter}>Open the Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
+					<button type="button" className="landing__nav-cta" onClick={onEnter}>Open the Lab <ArrowUpRight size={14} strokeWidth={2.2} /></button>
 				</nav>
 			</header>
 
@@ -260,7 +260,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 							className="landing-hero__cta-row"
 							variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } }}
 						>
-							<button className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
+							<button type="button" className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
 							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the system</a>
 						</motion.div>
 					</motion.div>
@@ -337,7 +337,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 			<section className="landing-cta">
 				<h2 className="landing-cta__title">Start with intuition. Dive into the math when you are ready.</h2>
 				<p className="landing-cta__sub">Build the model, place the poles, and search the space. All in the browser.</p>
-				<button className="btn btn--primary btn--lg" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
+				<button type="button" className="btn btn--primary btn--lg" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
 			</section>
 
 			<footer className="landing__footer" id="about">

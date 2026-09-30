@@ -192,7 +192,7 @@ export function OptimizeTab() {
 					<p className="faint reset-top">{LEARNING.formula}</p>
 					<div className="preset-row" role="radiogroup" aria-label="Objective weight preset">
 						{PRESETS.map((p) => (
-							<button key={p.key} role="radio" aria-checked={activePreset === p.key} className={`preset-chip ${activePreset === p.key ? 'active' : ''}`} onClick={() => handlePreset(p.key)}>
+							<button key={p.key} type="button" role="radio" aria-checked={activePreset === p.key} className={`preset-chip ${activePreset === p.key ? 'active' : ''}`} onClick={() => handlePreset(p.key)}>
 								{p.label}
 							</button>
 						))}
@@ -368,7 +368,7 @@ export function OptimizeTab() {
 
 						{w.optimizerResult.feasible && (w.optimizerResult.bestGain?.length ?? 0) >= 1 && (
 							<div className="btn-row mt-3">
-								<button className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
+								<button type="button" className="btn" onClick={w.applyOptimizedGain}><Check size={14} strokeWidth={2} /> Apply optimized gain</button>
 							</div>
 						)}
 

@@ -180,7 +180,7 @@ export default function App() {
 						transition={{ duration: 0.24, ease: 'easeOut' }}
 					>
 						<div className="workspace">
-							{drawerOpen && <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} />}
+							{drawerOpen && <div className="sidebar-backdrop" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
 							<aside
 								ref={drawerRef}
 								className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''} ${drawerOpen ? 'sidebar--open' : ''}`}
@@ -188,7 +188,7 @@ export default function App() {
 								aria-modal={drawerOpen || undefined}
 								aria-label={drawerOpen ? 'Workspace navigation' : undefined}
 							>
-								<button className="brand" onClick={() => navigate({ view: 'landing' })} title="Back to landing">
+								<button type="button" className="brand" onClick={() => navigate({ view: 'landing' })} title="Back to landing">
 									<span className="brand__mark"><LogoMark size={22} /></span>
 									<span className="brand__text">
 										<span className="brand__name">Control Lab</span>
@@ -216,24 +216,24 @@ export default function App() {
 							</nav>
 
 							<div className="sidebar__footer">
-								<button className="sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+								<button type="button" className="sidebar-toggle" onClick={toggleSidebar} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
 									<span className="nav__icon">
 										{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
 									</span>
 									<span className="nav__label">{collapsed ? '' : 'Collapse'}</span>
 								</button>
 
-								<button className="sidebar-toggle" onClick={resetWorkspace} aria-label="Reset workspace to defaults" title="Reset workspace to defaults">
+								<button type="button" className="sidebar-toggle" onClick={resetWorkspace} aria-label="Reset workspace to defaults" title="Reset workspace to defaults">
 									<span className="nav__icon"><RotateCcw /></span>
 									<span className="nav__label">{collapsed ? '' : 'Reset'}</span>
 								</button>
 							</div>
 						</aside>
 
-						<main className="main" aria-busy={w.loading !== null}>
+						<main className="main" aria-busy={w.loading !== null || w.refreshing}>
 							<header className="main__header">
 								<div className="main__header-left">
-									<button className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation" ref={menuBtnRef}>
+									<button type="button" className="main__menu-btn" onClick={() => setDrawerOpen(true)} aria-label="Open navigation" title="Open navigation" ref={menuBtnRef}>
 										<Menu />
 									</button>
 									<h1 className="main__title">{TAB_META[tab].label}</h1>
