@@ -254,7 +254,8 @@
   margin-top: calc(var(--space-5) + var(--space-1));
 }
 
-.landing-hero__figure {
+.landing-hero__figure,
+.how__rig {
   width: 100%;
   min-width: 0;
   padding: var(--space-4);
@@ -308,42 +309,51 @@
   font-family: var(--mono);
 }
 
-/* ---------- Steps ---------- */
+/* ---------- From physics to response ---------- */
+.how {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  margin-top: calc(var(--space-6) + var(--space-2));
+  align-items: start;
+}
+
+/* ---------- Pipeline steps ----------
+   A vertical timeline: each step is a mark chip beside its copy, and a short
+   accent rail runs down the left edge so the four read as one descending
+   pipeline from physics to response. */
 .steps {
   list-style: none;
-  margin: calc(var(--space-6) + var(--space-2)) 0 0;
+  margin: 0;
   padding: 0;
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-3);
+  display: grid;
+  gap: var(--space-5);
 }
 
 .step {
-  flex: 1;
-  min-width: 0;
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  box-shadow: var(--shadow);
+  align-items: start;
 }
 
-/* A short brand accent along the top edge ties the four steps together and
-   gives the reveal sequence a fixed spine to land on. */
+/* The spine: a 2px gradient rail that starts beside the first mark and
+   reaches toward the next, stopping short on the last row. */
 .step::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 24px;
-  right: 24px;
-  height: 2px;
-  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
-  background: linear-gradient(90deg, var(--blue), var(--brand-accent));
-  opacity: 0.65;
+  left: calc(var(--space-2) - 1px);
+  top: 4px;
+  bottom: calc(-1 * var(--space-5) + 14px);
+  width: 2px;
+  border-radius: var(--radius-xs);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 45%, transparent), color-mix(in srgb, var(--brand-accent) 38%, transparent));
+}
+
+.step:last-child::before {
+  bottom: auto;
+  height: 12px;
 }
 
 .step__mark {
@@ -356,6 +366,7 @@
   color: var(--blue-strong);
   font-size: var(--fs-caption);
   font-weight: var(--weight-strong);
+  white-space: nowrap;
 }
 
 .step__title {
@@ -368,14 +379,7 @@
   color: var(--text-2);
   font-size: var(--fs-caption);
   margin: 0;
-}
-
-.step__arrow {
-  flex: 0 0 auto;
-  align-self: center;
-  color: var(--text-3);
-  font-size: var(--fs-body);
-  padding: 0 2px;
+  max-width: 46ch;
 }
 
 /* ---------- Lab sim (hero physics visual) ---------- */
@@ -1135,17 +1139,8 @@
     scroll-margin-top: calc(var(--space-7) + var(--space-1));
   }
 
-  .steps {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .step {
-    flex: 1 1 44%;
-  }
-
-  .step__arrow {
-    display: none;
+  .how {
+    grid-template-columns: 1fr;
   }
 
   .regimes,
@@ -1196,10 +1191,6 @@
 
   .landing-section {
     padding: var(--space-7) var(--space-5) calc(var(--space-7) + var(--space-1));
-  }
-
-  .step {
-    flex: 1 1 100%;
   }
 
   .tradeoffs__traits {

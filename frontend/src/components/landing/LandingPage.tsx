@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react'
+import { useMemo } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ArrowRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
 import { MotionView } from '../common'
@@ -280,7 +280,7 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 						</motion.div>
 					</motion.div>
 					<div className="landing-hero__figure">
-						<MassSpringDamperSim {...HERO_BASE} />
+						<MassSpringDamperSim {...HERO_BASE} detail="physics" />
 					</div>
 				</div>
 			</section>
@@ -290,22 +290,26 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 					<h2 className="landing-section__title">From physics to response</h2>
 					<p className="landing-section__lede">One pipeline: model it, close the loop, then react to what it does.</p>
 				</div>
-				<MotionView>
-					<ol className="steps">
-						{STEPS.map((s, i) => (
-							<Fragment key={s.title}>
-								<li className="step">
+				<div className="how">
+					<MotionView>
+						<div className="how__rig">
+							<MassSpringDamperSim {...HERO_BASE} />
+						</div>
+					</MotionView>
+					<MotionView>
+						<ol className="steps">
+							{STEPS.map((s) => (
+								<li className="step" key={s.title}>
 									<span className="step__mark mono">{s.mark}</span>
 									<div>
 										<h3 className="step__title">{s.title}</h3>
 										<p className="step__text">{s.body}</p>
 									</div>
 								</li>
-								{i < STEPS.length - 1 && <li className="step__arrow" aria-hidden>→</li>}
-							</Fragment>
-						))}
-					</ol>
-				</MotionView>
+							))}
+						</ol>
+					</MotionView>
+				</div>
 			</section>
 
 			<section className="landing-section" id="simulate">

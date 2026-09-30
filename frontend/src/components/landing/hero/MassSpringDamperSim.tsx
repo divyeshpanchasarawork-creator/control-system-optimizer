@@ -41,12 +41,19 @@ const PRESET_LABELS = [
 
 type Mode = (typeof PRESET_LABELS)[number]['id']
 
-export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
+export function MassSpringDamperSim({ m, k, kp, kd, detail = 'full' }: Omit<LabParams, 'c'> & { detail?: 'physics' | 'full' }) {
 	const [mode, setMode] = useState<Mode>('critical')
 	const params = useMemo<LabParams>(
 		() => ({ m, k, kp, kd, c: presetDamping(mode, { m, k, kp, kd }) }),
 		[mode, m, k, kp, kd],
 	)
+
+	// The physics-only view is the hero's compact tease: the animated system
+	// with nothing instrumented around it. The full view adds the closed-loop
+	// plane and the live readouts for the "From physics to response" rig.
+	const showInstrumentation = detail === 'full'
+	const poles = showInstrumentation ? closedLoopPoles(params) : []
+	const zeta = showInstrumentation ? zetaOmega(params).zeta : 0
 
 	const [scene, setScene] = useState<SimState>({ position: 0, velocity: 0, time: 0 })
 	const stateRef = useRef<SimState>({ position: 0, velocity: 0, time: 0 })
@@ -104,8 +111,6 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 	const springY = 205
 	const damperY = 250
 	const refPx = posPx(REF)
-	const poles = closedLoopPoles(params)
-	const { zeta } = zetaOmega(params)
 
 	return (
 		<div className="lab-sim">
@@ -158,9 +163,10 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 						<circle cx={massLeft + MASS_W - 16} cy={287} r="6" className="lab-sim__wheel" />
 					</g>
 				</svg>
-				<PoleMini poles={poles} />
+				{showInstrumentation && <PoleMini poles={poles} />}
 			</figure>
 
+			{showInstrumentation && (
 			<div className="lab-sim__telemetry">
 				<div className="lab-sim__cell">
 					<span className="lab-sim__cell-label">m</span>
@@ -187,6 +193,7 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 					<span className="lab-sim__cell-value mono">{scene.velocity.toFixed(2)} m/s</span>
 				</div>
 			</div>
+			)}
 		</div>
 	)
 }
