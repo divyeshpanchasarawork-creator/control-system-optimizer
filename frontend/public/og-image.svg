@@ -21,9 +21,10 @@
   <g transform="translate(80 74)">
     <rect width="64" height="64" rx="14" fill="url(#brand)"/>
     <g transform="scale(2)">
-      <path d="M5 16 H12 M14 16 C 15 8, 18 24, 20 16 C 22 8, 25 24, 27 16" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-      <circle cx="4" cy="8" r="2" fill="#fff" opacity="0.9"/>
-      <circle cx="4" cy="24" r="2" fill="#fff" opacity="0.9"/>
+      <line x1="6" y1="27" x2="26.1" y2="27" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+      <line x1="9" y1="11" x2="26.1" y2="11" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="3 3" opacity="0.55"/>
+      <path d="M5.5 27 L6.3 26.6 L7.2 25.4 L8 23.8 L8.9 21.9 L9.7 19.8 L10.5 17.7 L11.4 15.8 L12.2 14 L13.1 12.4 L13.9 11.1 L14.7 10.1 L15.6 9.3 L16.4 8.8 L17.3 8.5 L18.1 8.4 L18.9 8.4 L19.8 8.6 L20.6 8.9 L21.5 9.2 L22.3 9.5 L23.1 9.9 L24 10.2 L24.8 10.5 L25.7 10.7 L26.1 10.9" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <circle cx="5" cy="26" r="2" fill="#fff"/>
     </g>
     <text x="84" y="44" font-family="-apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="#1d1d1f" letter-spacing="-0.4">Control Lab</text>
   </g>
