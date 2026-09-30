@@ -286,7 +286,7 @@ class ApiIntegrationTest {
 				// only limits that actually failed, never the ones that passed
 				.andExpect(jsonPath("$.nearestMiss.violatedConstraints[*].id", not(hasItem("max-control"))))
 				.andExpect(jsonPath("$.infeasibleReason", containsString("Closest candidate K = ")))
-				.andExpect(jsonPath("$.infeasibleReason", containsString("Steady-state error")));
+				.andExpect(jsonPath("$.infeasibleReason", containsString("Max steady-state error")));
 	}
 
 	@Test

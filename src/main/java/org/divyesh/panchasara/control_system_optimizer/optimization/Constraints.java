@@ -53,11 +53,11 @@ public record Constraints(Double maxControl, Double maxOvershoot, Double maxSett
 						settlingReached ? settlingTimeAchieved : null,
 						settlingReached && within(settlingTimeAchieved, maxSettlingTime));
 		ControlLimit energy = maxControlEnergy == null ? null
-				: new ControlLimit("max-control-energy", "Control energy", maxControlEnergy, controlEffortAchieved,
+				: new ControlLimit("max-control-energy", "Max control energy", maxControlEnergy, controlEffortAchieved,
 						within(controlEffortAchieved, maxControlEnergy));
 		boolean steadyStateApplicable = steadyStateErrorAchieved != null && Double.isFinite(steadyStateErrorAchieved);
 		ControlLimit steadyState = maxSteadyStateError == null ? null
-				: new ControlLimit("max-steady-state-error", "Steady-state error", maxSteadyStateError,
+				: new ControlLimit("max-steady-state-error", "Max steady-state error", maxSteadyStateError,
 						steadyStateApplicable ? steadyStateErrorAchieved : null,
 						!steadyStateApplicable || within(steadyStateErrorAchieved, maxSteadyStateError));
 		return new ConstraintReport(control, overshoot, settling, steadyState, energy);
