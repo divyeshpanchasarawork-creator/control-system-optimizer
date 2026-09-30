@@ -275,8 +275,8 @@ export function LandingPage({ onEnter }: { onEnter: () => void }) {
 							className="landing-hero__cta-row"
 							variants={heroChild}
 						>
-							<button type="button" className="btn btn--primary" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
-							<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the system</a>
+<button type="button" className="btn btn--primary btn--lg" onClick={onEnter}>Open the Lab <ArrowRight size={15} strokeWidth={2.2} /></button>
+						<a className="btn btn--ghost" href="#tune"><SlidersHorizontal size={14} strokeWidth={2} /> Explore the system</a>
 						</motion.div>
 					</motion.div>
 					<div className="landing-hero__figure">
