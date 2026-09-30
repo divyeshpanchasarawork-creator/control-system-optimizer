@@ -158,6 +158,7 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 						<circle cx={massLeft + MASS_W - 16} cy={287} r="6" className="lab-sim__wheel" />
 					</g>
 				</svg>
+				<PoleMini poles={poles} />
 			</figure>
 
 			<div className="lab-sim__telemetry">
@@ -185,7 +186,6 @@ export function MassSpringDamperSim({ m, k, kp, kd }: Omit<LabParams, 'c'>) {
 					<span className="lab-sim__cell-label">v</span>
 					<span className="lab-sim__cell-value mono">{scene.velocity.toFixed(2)} m/s</span>
 				</div>
-				<PoleMini poles={poles} />
 			</div>
 		</div>
 	)
