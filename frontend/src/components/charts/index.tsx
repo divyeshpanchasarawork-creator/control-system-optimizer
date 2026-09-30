@@ -37,7 +37,7 @@ export function OverlayChart({ data, series, height = 180 }: {
 	const c = chartColors()
 	return (
 		<ResponsiveContainer width="100%" height={height}>
-			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }} title={series.map((s) => s.name).join(' vs ')}>
+			<LineChart data={data} margin={{ top: 4, right: 12, bottom: 0, left: 0 }} title={series.map((s) => s.name).join(' vs ')} role="img" tabIndex={-1}>
 				<XAxis dataKey="time" type="number" tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={48} />
 				{series.map((s) => (
@@ -50,6 +50,7 @@ export function OverlayChart({ data, series, height = 180 }: {
 						strokeWidth={2.2}
 						strokeDasharray={s.dashed ? '6 4' : undefined}
 						isAnimationActive={false}
+						aria-label={s.name}
 					/>
 				))}
 			</LineChart>
@@ -71,7 +72,7 @@ export function TrajectoryChart({ response, kind }: { response: SimulationRespon
 
 	return (
 <ResponsiveContainer width="100%" height={200}>
-			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title={`${signalName} over time`}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title={`${signalName} over time`} role="img" tabIndex={-1}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: yLabel, angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
@@ -118,7 +119,7 @@ export function PositionChart({ response, band, xSS, focused }: {
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
-			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title={`Position x₁(t) over time${showBand ? `; settling band ±${fmt(bandAbs, 2)} m around the reference r₁ = ${fmt(r1 ?? 0, 2)} m` : ''}`} role="img" tabIndex={-1}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} domain={yDomain} label={{ value: 'Position (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
@@ -161,7 +162,7 @@ export function ErrorChart({ response, band }: { response: SimulationResponse; b
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
-			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+			<LineChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }} title={`Position error e(t) = r₁ − x₁ over time${showBand ? `; settling band ±${fmt(bandAbs, 2)} m around e = 0` : ''}`} role="img" tabIndex={-1}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="time" type="number" tickFormatter={fmtTick} tick={{ fontSize: 11 }} stroke={c.axis} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={52} label={{ value: 'e (m)', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 8 }} />
@@ -200,7 +201,7 @@ export function PoleZeroChart({ eigenvalues }: { eigenvalues: { real: number; im
 
 	return (
 		<ResponsiveContainer width="100%" height={240}>
-			<ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }} title="Closed-loop pole locations on the complex plane">
+			<ScatterChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }} title="Closed-loop pole locations on the complex plane" role="img" tabIndex={-1}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<ReferenceLine x={0} stroke={c.red} strokeWidth={1.5} strokeDasharray="4 4" label={{ value: 'stability edge', fontSize: 10, fill: c.red, position: 'top' }} />
 				<XAxis type="number" dataKey="x" domain={[-lim, lim]} tickCount={7} tick={{ fontSize: 11 }} stroke={c.axis} name="Re" label={{ value: 'Re(λ)', position: 'insideBottomRight', fontSize: 11, fill: c.axis, dx: 4 }} />
@@ -223,7 +224,7 @@ export function ConvergenceChart({ points, optimizerType }: { points: { generati
 	const annotated = finalJ !== undefined
 	return (
 		<ResponsiveContainer width="100%" height={220}>
-			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }} title={`Convergence of best objective J over ${xLabel.toLowerCase()}`}>
+			<LineChart data={plot} margin={{ top: 24, right: 16, bottom: 0, left: 0 }} title={`Convergence of best objective J over ${xLabel.toLowerCase()}`} role="img" tabIndex={-1}>
 				<CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 				<XAxis dataKey="generation" type="number" domain={[0, gMax]} tick={{ fontSize: 11 }} stroke={c.axis} label={{ value: xLabel, position: 'insideBottomRight', fontSize: 11, fill: c.axis, dy: 6 }} />
 				<YAxis tick={{ fontSize: 11 }} stroke={c.axis} width={56} label={{ value: 'Best objective J', angle: -90, position: 'insideLeft', fontSize: 11, fill: c.axis, dx: 10 }} />
@@ -398,8 +399,8 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 									onFocus={() => { setCursor({ r, c }); setHover({ r, c }) }}
 									onBlur={() => setHover((h) => (h && h.r === r && h.c === c ? null : h))}
 								>
-									{isOpt && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }} title="global optimum">★</span>}
-									{isManual && !isOpt && <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }} title="current / manual gain">●</span>}
+									{isOpt && <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>★</span>}
+									{isManual && !isOpt && <span aria-hidden="true" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>●</span>}
 								</div>
 							)
 						})}
@@ -408,7 +409,7 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 			</div>
 
 			{hover && (
-				<div className="heatmap-tooltip">
+				<div className="heatmap-tooltip" role="tooltip" aria-live="polite">
 					<span className="mono">Kp ~ row {hover.r}, Kd ~ col {hover.c}</span>
 					<span><b>J</b> = {hoverInfeasible ? 'infeasible / unstable' : fmt(hoverJ, 4)}</span>
 					{metricSurfaces && <span><b>IAE</b> = {hoverIae === null || hoverIae === undefined ? 'n/a' : fmt(hoverIae, 3)}</span>}

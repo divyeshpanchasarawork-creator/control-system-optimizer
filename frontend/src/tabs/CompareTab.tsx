@@ -4,6 +4,7 @@ import { GitCompareArrows } from 'lucide-react'
 import { Badge, BusyNote, Callout, ChartCell, ChartPanel, DataTable, Delta, deltaTone, Empty, GainTag, Learn, METRIC_GROUPS, MetricCard, ObjectiveBreakdownTable, Panel, relativeDelta, RunButton, StaleCallout } from '../components/common'
 import type { MetricKey } from '../components/common'
 import { OverlayChart } from '../components/charts'
+import { chartColors } from '../components/charts/palette'
 import type { ChartColor } from '../components/charts/palette'
 import { fmt } from '../components/common'
 import { useWorkspace } from '../state/WorkspaceContext'
@@ -344,7 +345,20 @@ function ChartGrid({ manual, optimized }: { manual: SimulationResponse | null; o
 		</ChartCell>,
 	)
 
-	return <div className="grid grid--2">{rows}</div>
+	const c = chartColors()
+	return (
+		<>
+			<div className="grid grid--2">{rows}</div>
+			<div className="heatmap-legend-row mt-2" role="group" aria-label="Overlay series">
+				{OVERLAY_SERIES.map((s) => (
+					<span key={s.key}>
+						<span className="swatch" style={s.dashed ? { background: 'transparent', borderTop: `2.5px dashed ${c[s.color]}` } : { background: c[s.color] }} />
+						{s.name}
+					</span>
+				))}
+			</div>
+		</>
+	)
 }
 
 export default CompareTab
