@@ -99,9 +99,8 @@
   --sidebar-w-collapsed: 64px;
   --header-h: 60px;
 
-  /* Content column. The workspace is a reading surface, not a full-bleed
-     canvas: past this width the line lengths get uncomfortable. */
-  --page-max: 1200px;
+  /* Inner inset for the workspace's header and body column. No cap: the
+     column invests whatever the sidebar leaves it. */
   --page-pad: 32px;
 
   --ease: cubic-bezier(0.3, 0.8, 0.3, 1);

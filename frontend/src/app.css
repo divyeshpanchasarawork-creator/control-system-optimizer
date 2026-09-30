@@ -378,13 +378,14 @@ body {
   overflow: hidden;
 }
 
-/* The content column is a reading surface. Cap it and centre it so line
-   lengths stay comfortable on wide displays instead of drifting to the edge. */
+/* The header and body column fill the workspace edge to edge; --page-pad
+   keeps the inner inset comfortable at every tier. No width cap here: a cap
+   that ignores the sidebar leaves dead gutters on both sides once the
+   sidebar collapses and frees its 200px, so the content should simply
+   reinvest that space. */
 .main__header,
 .main__body {
   width: 100%;
-  max-width: var(--page-max);
-  margin-inline: auto;
   /* Let overscroll on the inner column end the pull-to-refresh gesture
      instead of bouncing the whole shell on iOS. */
   overscroll-behavior-y: contain;
