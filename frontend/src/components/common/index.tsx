@@ -1,8 +1,8 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { useMotion } from '../../motionPresets'
+import { transitionFor, useMotion } from '../../motionPresets'
 
 const FALLBACK = 'Not available'
 
@@ -93,13 +93,15 @@ export const fmtGain = (g: number) => fmt(g, 3)
  * to instant for reduced-motion users, like everything else).
  */
 export function MotionView({ children, className }: { children: ReactNode; className?: string }) {
+	const reduce = !!useReducedMotion()
+	if (reduce) return <div className={className}>{children}</div>
 	return (
 		<motion.div
 			className={className}
 			initial={{ opacity: 0, y: 16 }}
 			whileInView={{ opacity: 1, y: 0 }}
 			viewport={{ once: true, margin: '-80px' }}
-			transition={useMotion('reveal')}
+			transition={transitionFor('reveal', false)}
 		>
 			{children}
 		</motion.div>
