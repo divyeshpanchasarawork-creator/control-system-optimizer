@@ -325,11 +325,13 @@ export function CostSurfaceHeatmap({ surface, axisLabels, metricSurfaces, optimu
 	const range = hi - lo || 1
 	const colors = chartColors()
 
+	// Same blue-to-violet story as the landing search map and the
+	// --cost-* tokens in theme.css (hue 218 -> 252, lightness 91% -> 55%).
 	const cell = (val: number | null | undefined) => {
 		if (val === null || val === undefined || !Number.isFinite(val)) return hatchPattern(colors)
 		const t = (val - lo) / range
-		const hue = 210 - t * 165
-		return `hsla(${hue}, 78%, ${92 - t * 44}%, 1)`
+		const hue = 218 + t * 34
+		return `hsla(${hue}, 78%, ${91 - t * 36}%, 1)`
 	}
 
 	const kpAxis = axisLabels[0]
