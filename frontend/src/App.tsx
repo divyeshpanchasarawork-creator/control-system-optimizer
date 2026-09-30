@@ -113,12 +113,34 @@ export default function App() {
 	const drawerRef = useRef<HTMLElement>(null)
 
 	// The drawer is a modal on touch devices: Esc closes it, focus moves into
-	// it on open and returns to the trigger on close. Without the focus round
-	// trip, keyboard and screen-reader users had no way back out of it.
+	// it on open, Tab stays inside it while it is open, and focus returns to
+	// the trigger on close. Without the focus round trip, keyboard and
+	// screen-reader users had no way back out of it.
 	useEffect(() => {
 		if (!drawerOpen) return
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') setDrawerOpen(false)
+			if (e.key === 'Escape') {
+				setDrawerOpen(false)
+				return
+			}
+			if (e.key !== 'Tab') return
+			const aside = drawerRef.current
+			if (!aside) return
+			const focusables = Array.from(
+				aside.querySelectorAll<HTMLElement>(
+					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+				),
+			).filter((el) => !el.hasAttribute('disabled'))
+			if (focusables.length === 0) return
+			const first = focusables[0]
+			const last = focusables[focusables.length - 1]
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault()
+				last.focus()
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault()
+				first.focus()
+			}
 		}
 		window.addEventListener('keydown', onKey)
 		const id = setTimeout(() => {
