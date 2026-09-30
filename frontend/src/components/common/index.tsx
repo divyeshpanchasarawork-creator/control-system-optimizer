@@ -344,8 +344,8 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
 	return <span className={`badge badge--${tone}`}>{children}</span>
 }
 
-export function Callout({ tone, children }: { tone: 'info' | 'warn' | 'error'; children: ReactNode }) {
-	return <div className={`callout callout--${tone}`}>{children}</div>
+export function Callout({ tone, role, children }: { tone: 'info' | 'warn' | 'error'; role?: string; children: ReactNode }) {
+	return <div className={`callout callout--${tone}`} role={role}>{children}</div>
 }
 
 export function BusyNote({ children, large = false }: { children: ReactNode; large?: boolean }) {

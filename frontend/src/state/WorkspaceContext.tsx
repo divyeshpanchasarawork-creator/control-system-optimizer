@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useReducer, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 import { fmt } from '../components/common'
@@ -73,7 +73,9 @@ function describeContextDrift(cfg: OptimizeRunConfig, live: RunSensitiveInputs):
 	return out
 }
 
-export interface WorkspaceState {
+/** Everything the reducer owns: the workspace inputs plus its result slots and
+ * per-operation busy/error flags. `staleContext` stays derived on top of these. */
+interface WorkspaceData {
 	systemDescriptor: SystemDescriptor | null
 
 	mass: number
@@ -130,23 +132,112 @@ export interface WorkspaceState {
 	/** A counter bumped after every completed optimization, so panels can
 	 * distinguish "ran again with the same inputs" from "never re-ran". */
 	optimizerRunId: number | null
-	/** Human-readable list of inputs that drifted since the last optimization.
-	 * Non-null only while a result exists and the model no longer matches it. */
-	staleContext: string[] | null
 
 	loading: string | null
 	refreshing: boolean
+	/** Per-operation error slots: a failed simulation or stability analysis
+	 * lands here, a failed optimization in `optError`, so a tab-local failure
+	 * never contaminates the other tabs' panels via one global message. */
+	simError: string | null
+	optError: string | null
+	/** Reserved for app-level loads (the system catalog at boot). */
 	error: string | null
+}
 
-	update: (patch: Partial<WorkspaceState>) => void
+interface WorkspaceActions {
+	update: (patch: Partial<WorkspaceData>) => void
 	loadCatalog: () => Promise<void>
 	runSimulation: (gain?: [number, number], options?: { silent?: boolean }) => Promise<void>
 	simulateGain: (gain: [number, number], key?: string) => Promise<SimulationResponse>
 	runStability: (options?: { silent?: boolean }) => Promise<void>
 	runOptimization: () => Promise<void>
 	applyOptimizedGain: () => void
-	clearResults: () => void
 	resetWorkspace: () => void
+}
+
+export interface WorkspaceState extends WorkspaceData, WorkspaceActions {
+	/** Human-readable list of inputs that drifted since the last optimization.
+	 * Non-null only while a result exists and the model no longer matches it. */
+	staleContext: string[] | null
+}
+
+const initialData: WorkspaceData = {
+	systemDescriptor: null,
+
+	mass: 1,
+	damping: 0.5,
+	springConstant: 2,
+
+	tracking: true,
+	feedforward: false,
+	manualGain: [10, 5],
+	optimizedGain: null,
+	useOptimized: false,
+
+	initialState: [0, 0],
+	reference: [1, 0],
+	endTime: 10,
+	timeStep: 0.01,
+	settlingBand: 5,
+	saturation: 0,
+
+	gainLower: [0, 0],
+	gainUpper: [40, 20],
+
+	optimizerType: 'GRID_SEARCH',
+	gridResolution: 41,
+	includeCostSurface: true,
+	populationSize: 24,
+	maxIterations: 150,
+	differentialWeight: 0.7,
+	crossoverRate: 0.9,
+	seed: 42,
+
+	constraintsEnabled: false,
+	maxControl: 50,
+	maxOvershoot: 10,
+	maxSettlingTime: 5,
+	maxSteadyStateError: 0.05,
+	maxControlEnergy: 40,
+
+	trackingErrorWeight: 1,
+	controlEffortWeight: 0.1,
+	settlingTimeWeight: 0.5,
+	overshootWeight: 0.5,
+	steadyStateErrorEnabled: false,
+	steadyStateErrorWeight: 1,
+
+	simulation: null,
+	simGain: null,
+	stability: null,
+	optimizerResult: null,
+	optimizerConfig: null,
+	optimizerRunId: null,
+
+	loading: null,
+	refreshing: false,
+	simError: null,
+	optError: null,
+	error: null,
+}
+
+type Action =
+	| { type: 'PATCH'; patch: Partial<WorkspaceData> }
+	| { type: 'CATALOG'; descriptor: SystemDescriptor | null }
+	| { type: 'CATALOG_FAIL'; error: string }
+	| { type: 'RESET' }
+
+function reducer(state: WorkspaceData, action: Action): WorkspaceData {
+	switch (action.type) {
+		case 'PATCH':
+			return { ...state, ...action.patch }
+		case 'CATALOG':
+			return { ...state, systemDescriptor: action.descriptor, error: null }
+		case 'CATALOG_FAIL':
+			return { ...state, error: action.error }
+		case 'RESET':
+			return { ...initialData }
+	}
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null)
@@ -160,410 +251,233 @@ function errorMessage(e: unknown): string {
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-	const [systemDescriptor, setSystemDescriptor] = useState<SystemDescriptor | null>(null)
-	const [mass, setMass] = useState(1)
-	const [damping, setDamping] = useState(0.5)
-	const [springConstant, setSpringConstant] = useState(2)
+	const [data, dispatch] = useReducer(reducer, initialData)
+	// Callbacks read the freshest snapshot through the ref so they stay stable
+	// (dispatch never changes) instead of rebuilding on every keystroke.
+	const dataRef = useRef(data)
+	dataRef.current = data
 
-	const [tracking, setTracking] = useState(true)
-	const [feedforward, setFeedforward] = useState(false)
-	const [manualGain, setManualGain] = useState<[number, number]>([10, 5])
-	const [optimizedGain, setOptimizedGain] = useState<[number, number] | null>(null)
-	const [useOptimized, setUseOptimized] = useState(false)
-
-	const [initialState, setInitialState] = useState<[number, number]>([0, 0])
-	const [reference, setReference] = useState<[number, number]>([1, 0])
-	const [endTime, setEndTime] = useState(10)
-	const [timeStep, setTimeStep] = useState(0.01)
-	const [settlingBand, setSettlingBand] = useState(5)
-	const [saturation, setSaturation] = useState(0)
-
-	const [gainLower, setGainLower] = useState<[number, number]>([0, 0])
-	const [gainUpper, setGainUpper] = useState<[number, number]>([40, 20])
-
-	const [optimizerType, setOptimizerType] = useState<OptimizerType>('GRID_SEARCH')
-	const [gridResolution, setGridResolution] = useState(41)
-	const [includeCostSurface, setIncludeCostSurface] = useState(true)
-	const [populationSize, setPopulationSize] = useState(24)
-	const [maxIterations, setMaxIterations] = useState(150)
-	const [differentialWeight, setDifferentialWeight] = useState(0.7)
-	const [crossoverRate, setCrossoverRate] = useState(0.9)
-	const [seed, setSeed] = useState(42)
-
-	const [constraintsEnabled, setConstraintsEnabled] = useState(false)
-	const [maxControl, setMaxControl] = useState(50)
-	const [maxOvershoot, setMaxOvershoot] = useState(10)
-	const [maxSettlingTime, setMaxSettlingTime] = useState(5)
-	const [maxSteadyStateError, setMaxSteadyStateError] = useState(0.05)
-	const [maxControlEnergy, setMaxControlEnergy] = useState(40)
-
-	const [trackingErrorWeight, setTrackingErrorWeight] = useState(1)
-	const [controlEffortWeight, setControlEffortWeight] = useState(0.1)
-	const [settlingTimeWeight, setSettlingTimeWeight] = useState(0.5)
-	const [overshootWeight, setOvershootWeight] = useState(0.5)
-	const [steadyStateErrorEnabled, setSteadyStateErrorEnabled] = useState(false)
-	const [steadyStateErrorWeight, setSteadyStateErrorWeight] = useState(1)
-
-	const [simulation, setSimulation] = useState<SimulationResponse | null>(null)
-	const [simGain, setSimGain] = useState<[number, number] | null>(null)
-	const [stability, setStability] = useState<StabilityResponse | null>(null)
-	const [optimizerResult, setOptimizerResult] = useState<OptimizationResponse | null>(null)
-	const [optimizerConfig, setOptimizerConfig] = useState<OptimizeRunConfig | null>(null)
-	const [optimizerRunId, setOptimizerRunId] = useState<number | null>(null)
-
-	const [loading, setLoading] = useState<string | null>(null)
-	const [refreshing, setRefreshing] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-	const silentActiveRef = useRef(0)
-
+	const silentRef = useRef(0)
 	const beginSilent = () => {
-		silentActiveRef.current += 1
-		setRefreshing(true)
+		silentRef.current += 1
+		dispatch({ type: 'PATCH', patch: { refreshing: true } })
 	}
 	const endSilent = () => {
-		silentActiveRef.current = Math.max(0, silentActiveRef.current - 1)
-		if (silentActiveRef.current === 0) setRefreshing(false)
+		silentRef.current = Math.max(0, silentRef.current - 1)
+		if (silentRef.current === 0) dispatch({ type: 'PATCH', patch: { refreshing: false } })
 	}
+
+	const update = useCallback((patch: Partial<WorkspaceData>) => {
+		dispatch({ type: 'PATCH', patch })
+	}, [])
 
 	const loadCatalog = useCallback(async () => {
 		try {
 			const list = await api.systems()
-			setSystemDescriptor(list[0] ?? null)
+			dispatch({ type: 'CATALOG', descriptor: list[0] ?? null })
 		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e))
+			dispatch({ type: 'CATALOG_FAIL', error: errorMessage(e) })
 		}
 	}, [])
 
 	const runSimulation = useCallback(async (gain?: [number, number], options?: { silent?: boolean }) => {
+		const s = dataRef.current
 		const silent = options?.silent ?? false
 		if (silent) beginSilent()
-		else setLoading('Simulating…')
-		setError(null)
+		else dispatch({ type: 'PATCH', patch: { loading: 'Simulating…' } })
+		dispatch({ type: 'PATCH', patch: { simError: null } })
 		try {
-			const applied = gain ?? (useOptimized && optimizedGain ? optimizedGain : manualGain)
+			const applied = gain ?? (s.useOptimized && s.optimizedGain ? s.optimizedGain : s.manualGain)
 			const system = {
 				type: 'SPRING_DAMPER' as const,
-				parameters: { mass, damping, springConstant },
+				parameters: { mass: s.mass, damping: s.damping, springConstant: s.springConstant },
 			}
-			const controller = { type: 'STATE_FEEDBACK' as const, gain: applied, tracking, feedforward }
+			const controller = { type: 'STATE_FEEDBACK' as const, gain: applied, tracking: s.tracking, feedforward: s.feedforward }
 			const res = await api.simulate({
 				system,
 				controller,
-				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
+				simulation: { initialState: s.initialState, reference: s.reference, endTime: s.endTime, timeStep: s.timeStep, settlingBand: s.settlingBand, saturation: s.saturation > 0 ? s.saturation : undefined },
 			})
-			setSimulation(res)
-			setSimGain(Array.isArray(applied) ? [applied[0], applied[1] ?? applied[0]] : null)
+			dispatch({ type: 'PATCH', patch: { simulation: res, simGain: Array.isArray(applied) ? [applied[0], applied[1] ?? applied[0]] : null } })
 		} catch (e) {
 			// Drop the previous result rather than leaving it on screen. The
 			// panels label their numbers with the *current* gain, so keeping the
 			// old response would silently attribute stale metrics to new gains.
 			if (!isAbortError(e)) {
-				setSimulation(null)
-				setSimGain(null)
-				setStability(null)
-				setError(errorMessage(e))
+				dispatch({ type: 'PATCH', patch: { simulation: null, simGain: null, stability: null, simError: errorMessage(e) } })
 			}
 		} finally {
 			if (silent) endSilent()
-			else setLoading(null)
+			else dispatch({ type: 'PATCH', patch: { loading: null } })
 		}
-	}, [mass, damping, springConstant, tracking, feedforward, manualGain, optimizedGain, useOptimized, initialState, reference, endTime, timeStep, settlingBand, saturation])
+	}, [])
 
 	const simulateGain = useCallback(async (gain: [number, number], key?: string): Promise<SimulationResponse> => {
+		const s = dataRef.current
 		const system = {
 			type: 'SPRING_DAMPER' as const,
-			parameters: { mass, damping, springConstant },
+			parameters: { mass: s.mass, damping: s.damping, springConstant: s.springConstant },
 		}
-		const controller = { type: 'STATE_FEEDBACK' as const, gain, tracking, feedforward }
+		const controller = { type: 'STATE_FEEDBACK' as const, gain, tracking: s.tracking, feedforward: s.feedforward }
 		return api.simulate({
 			system,
 			controller,
-			simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
+			simulation: { initialState: s.initialState, reference: s.reference, endTime: s.endTime, timeStep: s.timeStep, settlingBand: s.settlingBand, saturation: s.saturation > 0 ? s.saturation : undefined },
 		}, key)
-	}, [mass, damping, springConstant, tracking, feedforward, initialState, reference, endTime, timeStep, settlingBand, saturation])
+	}, [])
 
 	const runStability = useCallback(async (options?: { silent?: boolean }) => {
+		const s = dataRef.current
 		const silent = options?.silent ?? false
 		if (silent) beginSilent()
-		else setLoading('Analyzing stability…')
-		setError(null)
+		else dispatch({ type: 'PATCH', patch: { loading: 'Analyzing stability…' } })
+		dispatch({ type: 'PATCH', patch: { simError: null } })
 		try {
 			const system = {
 				type: 'SPRING_DAMPER' as const,
-				parameters: { mass, damping, springConstant },
+				parameters: { mass: s.mass, damping: s.damping, springConstant: s.springConstant },
 			}
 			const controller = {
 				type: 'STATE_FEEDBACK' as const,
-				gain: useOptimized && optimizedGain ? optimizedGain : manualGain,
-				tracking,
-				feedforward,
+				gain: s.useOptimized && s.optimizedGain ? s.optimizedGain : s.manualGain,
+				tracking: s.tracking,
+				feedforward: s.feedforward,
 			}
 			const res = await api.stability({ system, controller })
-			setStability(res)
+			dispatch({ type: 'PATCH', patch: { stability: res } })
 		} catch (e) {
-			if (!isAbortError(e)) setError(errorMessage(e))
+			if (!isAbortError(e)) dispatch({ type: 'PATCH', patch: { simError: errorMessage(e) } })
 		} finally {
 			if (silent) endSilent()
-			else setLoading(null)
+			else dispatch({ type: 'PATCH', patch: { loading: null } })
 		}
-	}, [mass, damping, springConstant, tracking, feedforward, manualGain, optimizedGain, useOptimized])
+	}, [])
 
 	const runOptimization = useCallback(async () => {
-		setLoading('Optimizing gains…')
-		setError(null)
+		const s = dataRef.current
+		dispatch({ type: 'PATCH', patch: { loading: 'Optimizing gains…', optError: null } })
 		// Snapshot the exact settings this run is launched with. The form stays
 		// live while the search runs and after it lands, so panels that describe
 		// the run must not read the live values back.
 		const config: OptimizeRunConfig = {
-			optimizerType,
-			gridResolution,
-			populationSize,
-			maxIterations,
-			gainLower: [...gainLower],
-			gainUpper: [...gainUpper],
-			feedforward,
-			saturation,
-			mass,
-			damping,
-			springConstant,
-			tracking,
-			initialState: [initialState[0], initialState[1]],
-			reference: [reference[0], reference[1]],
-			endTime,
-			timeStep,
-			settlingBand,
-			trackingErrorWeight,
-			controlEffortWeight,
-			settlingTimeWeight,
-			overshootWeight,
-			steadyStateErrorEnabled,
-			steadyStateErrorWeight,
-			constraintsEnabled,
-			maxControl,
-			maxOvershoot,
-			maxSettlingTime,
-			maxSteadyStateError,
-			maxControlEnergy,
+			optimizerType: s.optimizerType,
+			gridResolution: s.gridResolution,
+			populationSize: s.populationSize,
+			maxIterations: s.maxIterations,
+			gainLower: [...s.gainLower],
+			gainUpper: [...s.gainUpper],
+			feedforward: s.feedforward,
+			saturation: s.saturation,
+			mass: s.mass,
+			damping: s.damping,
+			springConstant: s.springConstant,
+			tracking: s.tracking,
+			initialState: [s.initialState[0], s.initialState[1]],
+			reference: [s.reference[0], s.reference[1]],
+			endTime: s.endTime,
+			timeStep: s.timeStep,
+			settlingBand: s.settlingBand,
+			trackingErrorWeight: s.trackingErrorWeight,
+			controlEffortWeight: s.controlEffortWeight,
+			settlingTimeWeight: s.settlingTimeWeight,
+			overshootWeight: s.overshootWeight,
+			steadyStateErrorEnabled: s.steadyStateErrorEnabled,
+			steadyStateErrorWeight: s.steadyStateErrorWeight,
+			constraintsEnabled: s.constraintsEnabled,
+			maxControl: s.maxControl,
+			maxOvershoot: s.maxOvershoot,
+			maxSettlingTime: s.maxSettlingTime,
+			maxSteadyStateError: s.maxSteadyStateError,
+			maxControlEnergy: s.maxControlEnergy,
 		}
 		try {
 			const system = {
 				type: 'SPRING_DAMPER' as const,
-				parameters: { mass, damping, springConstant },
+				parameters: { mass: s.mass, damping: s.damping, springConstant: s.springConstant },
 			}
 			const res = await api.optimize({
 				system,
-				controller: { type: 'STATE_FEEDBACK' as const, gain: [], tracking, feedforward },
-				gainBounds: { lower: gainLower, upper: gainUpper },
+				controller: { type: 'STATE_FEEDBACK' as const, gain: [], tracking: s.tracking, feedforward: s.feedforward },
+				gainBounds: { lower: s.gainLower, upper: s.gainUpper },
 				optimizer: {
-					type: optimizerType,
-					resolution: [gridResolution, gridResolution],
-					includeCostSurface: optimizerType === 'GRID_SEARCH' ? includeCostSurface : undefined,
-					populationSize: optimizerType === 'DIFFERENTIAL_EVOLUTION' ? populationSize : undefined,
-					maxIterations: optimizerType === 'DIFFERENTIAL_EVOLUTION' ? maxIterations : undefined,
-					differentialWeight: optimizerType === 'DIFFERENTIAL_EVOLUTION' ? differentialWeight : undefined,
-					crossoverRate: optimizerType === 'DIFFERENTIAL_EVOLUTION' ? crossoverRate : undefined,
-					seed: optimizerType === 'DIFFERENTIAL_EVOLUTION' ? seed : undefined,
+					type: s.optimizerType,
+					resolution: [s.gridResolution, s.gridResolution],
+					includeCostSurface: s.optimizerType === 'GRID_SEARCH' ? s.includeCostSurface : undefined,
+					populationSize: s.optimizerType === 'DIFFERENTIAL_EVOLUTION' ? s.populationSize : undefined,
+					maxIterations: s.optimizerType === 'DIFFERENTIAL_EVOLUTION' ? s.maxIterations : undefined,
+					differentialWeight: s.optimizerType === 'DIFFERENTIAL_EVOLUTION' ? s.differentialWeight : undefined,
+					crossoverRate: s.optimizerType === 'DIFFERENTIAL_EVOLUTION' ? s.crossoverRate : undefined,
+					seed: s.optimizerType === 'DIFFERENTIAL_EVOLUTION' ? s.seed : undefined,
 				},
 				objective: {
-					trackingErrorWeight,
-					controlEffortWeight,
-					settlingTimeWeight,
-					overshootWeight,
-					steadyStateErrorWeight: steadyStateErrorEnabled ? steadyStateErrorWeight : undefined,
-					steadyStateErrorScale: steadyStateErrorEnabled ? Math.abs(reference[0]) || 1 : undefined,
+					trackingErrorWeight: s.trackingErrorWeight,
+					controlEffortWeight: s.controlEffortWeight,
+					settlingTimeWeight: s.settlingTimeWeight,
+					overshootWeight: s.overshootWeight,
+					steadyStateErrorWeight: s.steadyStateErrorEnabled ? s.steadyStateErrorWeight : undefined,
+					steadyStateErrorScale: s.steadyStateErrorEnabled ? Math.abs(s.reference[0]) || 1 : undefined,
 				},
-				constraints: constraintsEnabled
+				constraints: s.constraintsEnabled
 					? {
-						maxControl,
-						maxOvershoot,
-						maxSettlingTime,
-						maxSteadyStateError,
-						maxControlEnergy,
+						maxControl: s.maxControl,
+						maxOvershoot: s.maxOvershoot,
+						maxSettlingTime: s.maxSettlingTime,
+						maxSteadyStateError: s.maxSteadyStateError,
+						maxControlEnergy: s.maxControlEnergy,
 					}
 					: undefined,
-				simulation: { initialState, reference, endTime, timeStep, settlingBand, saturation: saturation > 0 ? saturation : undefined },
+				simulation: { initialState: s.initialState, reference: s.reference, endTime: s.endTime, timeStep: s.timeStep, settlingBand: s.settlingBand, saturation: s.saturation > 0 ? s.saturation : undefined },
 			})
-			setOptimizerResult(res)
-			setOptimizerConfig(config)
-			setOptimizerRunId((n) => (n ?? 0) + 1)
 			// A feasible result must carry a full two-gain vector before it is
 			// allowed to replace the manual gain; never fabricate the missing
-			// axis from the one that was returned.
-			if (res.feasible && Array.isArray(res.bestGain) && res.bestGain.length >= 2) {
-				setOptimizedGain([res.bestGain[0], res.bestGain[1]])
-			}
+			// axis from the one that was returned. A later infeasible run yields
+			// no new gain, so the previous one cannot be claimed by the new
+			// result either.
+			const newGain: [number, number] | null = res.feasible && Array.isArray(res.bestGain) && res.bestGain.length >= 2
+				? [res.bestGain[0], res.bestGain[1]]
+				: null
+			dispatch({
+				type: 'PATCH',
+				patch: {
+					optimizerResult: res,
+					optimizerConfig: config,
+					optimizerRunId: (s.optimizerRunId ?? 0) + 1,
+					optimizedGain: newGain,
+				},
+			})
 		} catch (e) {
-			if (!isAbortError(e)) setError(errorMessage(e))
+			if (!isAbortError(e)) dispatch({ type: 'PATCH', patch: { optError: errorMessage(e) } })
 		} finally {
-			setLoading(null)
+			dispatch({ type: 'PATCH', patch: { loading: null } })
 		}
-	}, [mass, damping, springConstant, tracking, feedforward, gainLower, gainUpper, optimizerType, gridResolution, includeCostSurface, populationSize, maxIterations, differentialWeight, crossoverRate, seed, trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight, steadyStateErrorEnabled, steadyStateErrorWeight, initialState, reference, endTime, timeStep, settlingBand, saturation, constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, maxSteadyStateError, maxControlEnergy, manualGain])
+	}, [])
 
 	const applyOptimizedGain = useCallback(() => {
-		if (optimizedGain) {
-			setUseOptimized(true)
+		if (dataRef.current.optimizedGain) {
+			dispatch({ type: 'PATCH', patch: { useOptimized: true } })
 		}
-	}, [optimizedGain])
-
-	const clearResults = useCallback(() => {
-		setSimulation(null)
-		setSimGain(null)
-		setStability(null)
-		setOptimizerResult(null)
-		setOptimizerConfig(null)
-		setOptimizerRunId(null)
-		setOptimizedGain(null)
-		setUseOptimized(false)
-		setError(null)
 	}, [])
 
 	const resetWorkspace = useCallback(() => {
-		setMass(1)
-		setDamping(0.5)
-		setSpringConstant(2)
-		setTracking(true)
-		setFeedforward(false)
-		setManualGain([10, 5])
-		setOptimizedGain(null)
-		setUseOptimized(false)
-		setInitialState([0, 0])
-		setReference([1, 0])
-		setEndTime(10)
-		setTimeStep(0.01)
-		setSettlingBand(5)
-		setSaturation(0)
-		setGainLower([0, 0])
-		setGainUpper([40, 20])
-		setOptimizerType('GRID_SEARCH')
-		setGridResolution(41)
-		setIncludeCostSurface(true)
-		setPopulationSize(24)
-		setMaxIterations(150)
-		setDifferentialWeight(0.7)
-		setCrossoverRate(0.9)
-		setSeed(42)
-		setConstraintsEnabled(false)
-		setMaxControl(50)
-		setMaxOvershoot(10)
-		setMaxSettlingTime(5)
-		setMaxSteadyStateError(0.05)
-		setMaxControlEnergy(40)
-		setTrackingErrorWeight(1)
-		setControlEffortWeight(0.1)
-		setSettlingTimeWeight(0.5)
-		setOvershootWeight(0.5)
-setSteadyStateErrorEnabled(false)
-		setSteadyStateErrorWeight(1)
-		setSimulation(null)
-		setSimGain(null)
-		setStability(null)
-		setOptimizerResult(null)
-		setOptimizerConfig(null)
-		setOptimizerRunId(null)
-		setError(null)
+		dispatch({ type: 'RESET' })
 	}, [])
 
-	const update = useCallback((patch: Partial<WorkspaceState>) => {
-		if (patch.error !== undefined) setError(patch.error)
-		if (patch.mass !== undefined) setMass(patch.mass)
-		if (patch.damping !== undefined) setDamping(patch.damping)
-		if (patch.springConstant !== undefined) setSpringConstant(patch.springConstant)
-		if (patch.tracking !== undefined) setTracking(patch.tracking)
-		if (patch.feedforward !== undefined) setFeedforward(patch.feedforward)
-		if (patch.manualGain !== undefined) setManualGain(patch.manualGain)
-		if (patch.optimizedGain !== undefined) setOptimizedGain(patch.optimizedGain)
-		if (patch.useOptimized !== undefined) setUseOptimized(patch.useOptimized)
-		if (patch.initialState !== undefined) setInitialState(patch.initialState)
-		if (patch.reference !== undefined) setReference(patch.reference)
-		if (patch.endTime !== undefined) setEndTime(patch.endTime)
-		if (patch.timeStep !== undefined) setTimeStep(patch.timeStep)
-		if (patch.settlingBand !== undefined) setSettlingBand(patch.settlingBand)
-		if (patch.saturation !== undefined) setSaturation(patch.saturation)
-		if (patch.gainLower !== undefined) setGainLower(patch.gainLower)
-		if (patch.gainUpper !== undefined) setGainUpper(patch.gainUpper)
-		if (patch.optimizerType !== undefined) setOptimizerType(patch.optimizerType)
-		if (patch.gridResolution !== undefined) setGridResolution(patch.gridResolution)
-		if (patch.includeCostSurface !== undefined) setIncludeCostSurface(patch.includeCostSurface)
-		if (patch.populationSize !== undefined) setPopulationSize(patch.populationSize)
-		if (patch.maxIterations !== undefined) setMaxIterations(patch.maxIterations)
-		if (patch.differentialWeight !== undefined) setDifferentialWeight(patch.differentialWeight)
-		if (patch.crossoverRate !== undefined) setCrossoverRate(patch.crossoverRate)
-		if (patch.seed !== undefined) setSeed(patch.seed)
-		if (patch.constraintsEnabled !== undefined) setConstraintsEnabled(patch.constraintsEnabled)
-		if (patch.maxControl !== undefined) setMaxControl(patch.maxControl)
-		if (patch.maxOvershoot !== undefined) setMaxOvershoot(patch.maxOvershoot)
-		if (patch.maxSettlingTime !== undefined) setMaxSettlingTime(patch.maxSettlingTime)
-		if (patch.maxSteadyStateError !== undefined) setMaxSteadyStateError(patch.maxSteadyStateError)
-		if (patch.maxControlEnergy !== undefined) setMaxControlEnergy(patch.maxControlEnergy)
-		if (patch.trackingErrorWeight !== undefined) setTrackingErrorWeight(patch.trackingErrorWeight)
-		if (patch.controlEffortWeight !== undefined) setControlEffortWeight(patch.controlEffortWeight)
-		if (patch.settlingTimeWeight !== undefined) setSettlingTimeWeight(patch.settlingTimeWeight)
-		if (patch.overshootWeight !== undefined) setOvershootWeight(patch.overshootWeight)
-		if (patch.steadyStateErrorEnabled !== undefined) setSteadyStateErrorEnabled(patch.steadyStateErrorEnabled)
-		if (patch.steadyStateErrorWeight !== undefined) setSteadyStateErrorWeight(patch.steadyStateErrorWeight)
-	}, [])
-
-	const staleContext = optimizerConfig && optimizerResult
+	const staleContext = data.optimizerConfig && data.optimizerResult
 		? (() => {
-			const drift = describeContextDrift(optimizerConfig, {
-				mass, damping, springConstant, tracking, feedforward, saturation,
-				initialState, reference, endTime, timeStep, settlingBand,
-				trackingErrorWeight, controlEffortWeight, settlingTimeWeight, overshootWeight,
-				steadyStateErrorEnabled, steadyStateErrorWeight,
-				constraintsEnabled, maxControl, maxOvershoot, maxSettlingTime, maxSteadyStateError, maxControlEnergy,
+			const drift = describeContextDrift(data.optimizerConfig, {
+				mass: data.mass, damping: data.damping, springConstant: data.springConstant, tracking: data.tracking, feedforward: data.feedforward, saturation: data.saturation,
+				initialState: data.initialState, reference: data.reference, endTime: data.endTime, timeStep: data.timeStep, settlingBand: data.settlingBand,
+				trackingErrorWeight: data.trackingErrorWeight, controlEffortWeight: data.controlEffortWeight, settlingTimeWeight: data.settlingTimeWeight, overshootWeight: data.overshootWeight,
+				steadyStateErrorEnabled: data.steadyStateErrorEnabled, steadyStateErrorWeight: data.steadyStateErrorWeight,
+				constraintsEnabled: data.constraintsEnabled, maxControl: data.maxControl, maxOvershoot: data.maxOvershoot, maxSettlingTime: data.maxSettlingTime, maxSteadyStateError: data.maxSteadyStateError, maxControlEnergy: data.maxControlEnergy,
 			})
 			return drift.length > 0 ? drift : null
 		})()
 		: null
 
 	const value: WorkspaceState = {
-		systemDescriptor,
-		mass,
-		damping,
-		springConstant,
-		tracking,
-		feedforward,
-		manualGain,
-		optimizedGain,
-		useOptimized,
-		initialState,
-		reference,
-		endTime,
-		timeStep,
-		settlingBand,
-		saturation,
-		gainLower,
-		gainUpper,
-		optimizerType,
-		gridResolution,
-		includeCostSurface,
-		populationSize,
-		maxIterations,
-		differentialWeight,
-		crossoverRate,
-		seed,
-		constraintsEnabled,
-		maxControl,
-		maxOvershoot,
-		maxSettlingTime,
-		maxSteadyStateError,
-		maxControlEnergy,
-		trackingErrorWeight,
-		controlEffortWeight,
-		settlingTimeWeight,
-		overshootWeight,
-		steadyStateErrorEnabled,
-		steadyStateErrorWeight,
-simulation,
-		simGain,
-		stability,
-		optimizerResult,
-		optimizerConfig,
-		optimizerRunId,
+		...data,
 		staleContext,
-		loading,
-		refreshing,
-		error,
 		update,
 		loadCatalog,
 		runSimulation,
@@ -571,7 +485,6 @@ simulation,
 		runStability,
 		runOptimization,
 		applyOptimizedGain,
-		clearResults,
 		resetWorkspace,
 	}
 

@@ -233,10 +233,11 @@ export function OptimizeTab() {
 			</Panel>
 
 			{w.loading && <div className="callout callout--info">{w.loading}</div>}
+			{!w.loading && w.optError && <div className="callout callout--error">{w.optError}</div>}
 
 			<div className="btn-row btn-row--end">
 				<RunButton block icon={<Rocket size={14} strokeWidth={2} />} pending={w.loading !== null}
-					pendingLabel={w.loading ?? 'Running…'} label={w.error ? 'Retry optimization' : 'Run optimization'}
+					pendingLabel={w.loading ?? 'Running…'} label={w.optError ? 'Retry optimization' : 'Run optimization'}
 					onClick={() => void w.runOptimization()} />
 			</div>
 

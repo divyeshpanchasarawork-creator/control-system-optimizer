@@ -66,6 +66,7 @@ export function CompareTab() {
 	const [optSim, setOptSim] = useState<SimulationResponse | null>(null)
 	const [ran, setRan] = useState(false)
 	const [pending, setPending] = useState(false)
+	const [compareError, setCompareError] = useState<string | null>(null)
 
 	const ready = w.optimizedGain !== null
 	const inputKey = JSON.stringify({
@@ -98,7 +99,7 @@ export function CompareTab() {
 	const runBoth = useCallback(async () => {
 		setPending(true)
 		inFlightRef.current = true
-		w.update({ error: null })
+		setCompareError(null)
 		try {
 			const [m, o] = await Promise.all([
 				w.simulateGain(w.manualGain, 'compare:manual'),
@@ -114,12 +115,12 @@ export function CompareTab() {
 			setManualSim(null)
 			setOptSim(null)
 			setRan(false)
-			w.update({ error: e instanceof Error ? e.message : String(e) })
+			setCompareError(e instanceof Error ? e.message : String(e))
 		} finally {
 			inFlightRef.current = false
 			setPending(false)
 		}
-	}, [w.manualGain, w.optimizedGain, w.simulateGain, w.update])
+	}, [w.manualGain, w.optimizedGain, w.simulateGain])
 
 	const runRef = useRef(runBoth)
 	runRef.current = runBoth
@@ -171,6 +172,11 @@ export function CompareTab() {
 				{!ready && (
 					<div className="mt-3">
 						<Callout tone="warn" >Run an optimization in the Optimize tab to unlock the comparison.</Callout>
+					</div>
+				)}
+				{compareError && (
+					<div className="mt-3">
+						<Callout tone="error" role="alert">{compareError}</Callout>
 					</div>
 				)}
 				{ready && !pending && ran && (w.staleContext ? (

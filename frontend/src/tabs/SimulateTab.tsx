@@ -307,9 +307,9 @@ export function SimulateTab() {
 				</div>
 			)}
 
-			{!busy && w.error && w.simulation === null && (
+			{!busy && w.simError && w.simulation === null && (
 				<div className="callout callout--error">
-					<span>{w.error}</span>
+					<span>{w.simError}</span>
 					<button type="button" className="btn btn--sm" onClick={() => { void w.runSimulation(); void w.runStability({ silent: true }) }}>
 						Retry simulation
 					</button>
